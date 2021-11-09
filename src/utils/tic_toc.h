@@ -5,26 +5,18 @@
 #ifndef BA_COST_TIC_TOC_H
 #define BA_COST_TIC_TOC_H
 
-#include <ctime>
-#include <cstdlib>
 #include <chrono>
+#include <cstdlib>
+#include <ctime>
 #include <ratio>
 
-class TicToc
-{
+class TicToc {
 public:
-    TicToc()
-    {
-        tic();
-    }
+    TicToc() { tic(); }
 
-    void tic()
-    {
-        start = std::chrono::high_resolution_clock::now();
-    }
+    void tic() { start = std::chrono::high_resolution_clock::now(); } // return time in seconds
 
-    double toc()
-    {
+    double toc() {
         end = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double, std::ratio<1, 1000>> elapsed_seconds = end - start;
         return elapsed_seconds.count();

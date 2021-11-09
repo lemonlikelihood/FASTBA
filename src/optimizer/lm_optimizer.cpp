@@ -87,7 +87,8 @@ void LMOptimizer::solve_problem() {
     }
 
     double total_time_ms = total_time.toc();
-    solver->param_recover();
+    // solver->param_recover();
+    problem->recover_param();
     double final_cost;
     solver->compute_cost(final_cost);
     std::cout << "Final Cost : " << final_cost << std::endl;

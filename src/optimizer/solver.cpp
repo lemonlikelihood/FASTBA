@@ -169,23 +169,23 @@ void Solver::param_update() {
 
 void Solver::param_recover() {
     // std::cout << "param_recover ..." << std::endl;
-    for (int camera_index_in_x_f = 0; camera_index_in_x_f < problem->num_camera;
-         ++camera_index_in_x_f) {
-        int camera_id = camera_index_in_x_f;
-        Eigen::Map<Eigen::Quaterniond> qcw(
-            problem->param_blocks[camera_index_in_x_f * 2].param_ptr);
-        problem->map->frame_map[camera_id]->qcw = qcw;
-        Eigen::Map<Eigen::Vector3d> pcw(
-            problem->param_blocks[camera_index_in_x_f * 2 + 1].param_ptr);
-        problem->map->frame_map[camera_id]->pcw = pcw;
-    }
-    for (int point_index_in_x_e = 0; point_index_in_x_e < problem->num_point;
-         ++point_index_in_x_e) {
-        int track_id = problem->map->index_to_track_id_map[point_index_in_x_e];
-        Eigen::Map<Eigen::Vector3d> x_w(
-            problem->param_blocks[problem->num_camera * 2 + point_index_in_x_e].param_ptr);
-        problem->map->track_map[track_id]->point_3D = x_w;
-    }
+    // for (int camera_index_in_x_f = 0; camera_index_in_x_f < problem->num_camera;
+    //      ++camera_index_in_x_f) {
+    //     int camera_id = camera_index_in_x_f;
+    //     Eigen::Map<Eigen::Quaterniond> qcw(
+    //         problem->param_blocks[camera_index_in_x_f * 2].param_ptr);
+    //     problem->map->frame_map[camera_id]->qcw = qcw;
+    //     Eigen::Map<Eigen::Vector3d> pcw(
+    //         problem->param_blocks[camera_index_in_x_f * 2 + 1].param_ptr);
+    //     problem->map->frame_map[camera_id]->pcw = pcw;
+    // }
+    // for (int point_index_in_x_e = 0; point_index_in_x_e < problem->num_point;
+    //      ++point_index_in_x_e) {
+    //     int track_id = problem->map->index_to_track_id_map[point_index_in_x_e];
+    //     Eigen::Map<Eigen::Vector3d> x_w(
+    //         problem->param_blocks[problem->num_camera * 2 + point_index_in_x_e].param_ptr);
+    //     problem->map->track_map[track_id]->point_3D = x_w;
+    // }
     // std::cout << "param_recover end " << std::endl;
 }
 

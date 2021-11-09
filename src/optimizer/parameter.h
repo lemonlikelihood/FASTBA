@@ -7,6 +7,7 @@
 
 #include "eigen_ba.h"
 #include "local_parameterization.h"
+#include "projection_factor.h"
 namespace fast_ba {
 struct ParamBlock {
     ParamBlock(double *_ptr, int _size, LocalParameterization *_p) {
@@ -82,29 +83,24 @@ public:
 
     ResidualBlock(int residual_id_, int camera_id_, int point_id_)
         : residual_id(residual_id_), camera_id(camera_id_), point_id(point_id_) {
-        factor = std::make_unique<ProjectionFactor>();
+        // factor = std::make_unique<ClassicalProjectFactor>();
         jacobian_ptr = {jac_camera_factor.data(), jac_point_factor.data()};
         factor_ptr = {
             ftf_factor.data(), ftb_factor.data(), etf_factor.data(), ete_factor.data(),
             etb_factor.data()};
     };
 
-    void init() {
+    void init(PROJECTION_TYPE &projection_type, Eigen::Vector2d &measurement) {
         jacobian_ptr = {jac_camera_factor.data(), jac_point_factor.data()};
         factor_ptr = {
             ftf_factor.data(), ftb_factor.data(), etf_factor.data(), ete_factor.data(),
             etb_factor.data()};
+        if (projection_type == PROJECTION_TYPE::CLASSICAL_PROJECTION)
+            factor = std::make_unique<ClassicalProjectFactor>(measurement);
+        else if (projection_type == PROJECTION_TYPE::SYM_PROJECTION) {
+            factor = std::make_unique<SymProjectFactor>(measurement);
+        }
     }
-
-    //        ResidualBlock(const ResidualBlock &other){
-    //            residual_id = other.residual_id;
-    //            camera_id = other.camera_id;
-    //            point_id = other.point_id;
-    //
-    //            jac_camera_factor = other.jac_camera_factor;
-    //            jac_point_factor = other.jac_point_factor;
-    //            residual_factor = other.residual_factor;
-    //        }
 
     int residual_id;
     int camera_id;

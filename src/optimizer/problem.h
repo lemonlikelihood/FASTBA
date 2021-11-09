@@ -5,65 +5,49 @@
 #ifndef FASTBA_PROBLEM_H
 #define FASTBA_PROBLEM_H
 
-#include "map.h"
 #include "eigen_ba.h"
-#include "projection_factor.h"
+#include "map.h"
 #include "parameter.h"
+#include "projection_factor.h"
 
 namespace fast_ba {
-    class Problem {
-    public:
 
-        Problem(Map* _map);
+class Problem {
 
-        void schur_complement();
+public:
+    Problem(Map *map_, PROJECTION_TYPE projection_type_);
+    ~Problem();
 
-        void compute_delta();
+    void add_camera_param();
+    void add_point_param();
+    void add_residual_param();
 
-        void param_plus_delta();
+    void print_param_blocks();
 
-        void param_update();
+    void recover_param();
+    void recover_carema_param();
+    void recover_point_param();
 
-        void compute_model_cost_change();
+    bool evaluate();
 
-        bool evaluate();
+    bool evaluate_candidate();
 
-        bool evaluate_candidate();
+    int num_residual;
+    int num_camera;
+    int num_point;
 
-        void compute_relative_decrease();
+    std::vector<ResidualBlock> residual_blocks;
+    std::vector<ParamBlock> param_blocks;
 
-        void compute_step_norm_x_norm(double &step_norm, double &x_norm);
+    std::vector<double *> param_vec;
+    // std::vector<std::shared_ptr<double>> param_vec;
+    // std::vector<std::vector<double>> param_vec;
 
-        void compute_cost(double &cost);
+    std::vector<std::vector<int>> camera_to_observation_id_vec;
+    std::vector<std::vector<int>> point_to_observation_id_vec;
 
-//    private:
-
-        int num_residual;
-        int num_camera;
-        int num_point;
-
-//        Eigen::VectorXd x_f;
-//        Eigen::VectorXd x_e;
-//        std::vector<Jac_camera_block> Jac_camera_factors;
-//        std::vector<Jac_point_block> Jac_point_factors;
-//        std::vector<Residual_block> residuals;
-//        std::vector<Ftf_block> Ftf_factors;
-//        std::vector<Ftb_block> Ftb_factors;
-//        std::vector<Ete_block> ete_factors;
-//        std::vector<Etb_block> etb_factors;
-        std::vector<ResidualBlock> residual_blocks;
-        std::vector<ParamBlock> param_blocks;
-
-        std::vector<std::vector<int>> camera_to_observation_id_vec;
-        std::vector<std::vector<int>> point_to_observation_id_vec;
-
-//        Eigen::MatrixXd lhs;
-//        Eigen::VectorXd rhs;
-//        Eigen::VectorXd x_f;
-//        Eigen::VectorXd x_e;
-
-        Map* map;
-
-    };
-}
+    Map *map;
+    PROJECTION_TYPE projection_type;
+};
+} // namespace fast_ba
 #endif //FASTBA_PROBLEM_H

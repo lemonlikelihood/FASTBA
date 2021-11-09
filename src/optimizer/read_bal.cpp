@@ -3,11 +3,11 @@
 //
 
 
-#include "../utils/read_file.h"
 #include "read_bal.h"
-#include <fstream>
+#include "../utils/read_file.h"
 #include "map.h"
 #include <ceres/rotation.h>
+#include <fstream>
 
 BalReader::BalReader(std::string &path) {
     this->path = path;
@@ -31,23 +31,25 @@ bool BalReader::read_map() {
     int observation_num;
 
     bool valid;
-    std::stringstream ss = get_line_ss(fin,valid);
+    std::stringstream ss = get_line_ss(fin, valid);
     ss >> frame_num >> track_num >> observation_num;
     map->frame_num = frame_num;
     map->track_num = track_num;
     map->observation_num = observation_num;
-//    map->observation_vec.resize(observation_num);
+    //    map->observation_vec.resize(observation_num);
     std::cout << "map->frame_num: " << map->frame_num << " map->track_num: " << map->track_num
               << " map->observation_num: " << map->observation_num << std::endl;
     for (int i = 0; i < observation_num; ++i) {
-        ss = get_line_ss(fin,valid);
+        ss = get_line_ss(fin, valid);
         int frame_id;
         int track_id;
         double x;
         double y;
         ss >> frame_id >> track_id >> x >> y;
-        std::cout << i << " " << frame_id << " " << track_id << " " << x << " " << y << std::endl;
-//        map->observation_vec[i] = std::make_unique<Observation>(i,frame_id,track_id,x,y);
+        if (i == observation_num - 1)
+            std::cout << i << " " << frame_id << " " << track_id << " " << x << " " << y
+                      << std::endl;
+        //        map->observation_vec[i] = std::make_unique<Observation>(i,frame_id,track_id,x,y);
         Observation *observation_curr = nullptr;
         Frame *frame_curr = nullptr;
         Track *track_curr = nullptr;
@@ -70,26 +72,48 @@ bool BalReader::read_map() {
     }
     std::cout << "observation over" << std::endl;
     for (int i = 0; i < frame_num; ++i) {
-        auto *R_vec = new double[3];
-        auto *q_vec = new double[4];
+        std::vector<double> R_vec(3);
+        std::vector<double> q_vec(4);
         Eigen::Vector3d t;
         Eigen::Vector3d C;
         Eigen::Matrix3d K;
-        ss = get_line_ss(fin,valid);
-        ss >> R_vec[0] >> R_vec[1] >> R_vec[2] >> t.x() >> t.y() >> t.z() >> C.x() >> C.y() >> C.z();
+        ss = get_line_ss(fin, valid);
+        ss >> R_vec[0];
+        ss = get_line_ss(fin, valid);
+        ss >> R_vec[1];
+        ss = get_line_ss(fin, valid);
+        ss >> R_vec[2];
+        ss = get_line_ss(fin, valid);
+        ss >> t.x();
+        ss = get_line_ss(fin, valid);
+        ss >> t.y();
+        ss = get_line_ss(fin, valid);
+        ss >> t.z();
+        ss = get_line_ss(fin, valid);
+        ss >> C.x();
+        ss = get_line_ss(fin, valid);
+        ss >> C.y();
+        ss = get_line_ss(fin, valid);
+        ss >> C.z();
         map->frame_map[i].get()->f = C.x();
         map->frame_map[i].get()->k1 = C.y();
         map->frame_map[i].get()->k2 = C.z();
-        ceres::AngleAxisToQuaternion(R_vec, q_vec);
+        ceres::AngleAxisToQuaternion(R_vec.data(), q_vec.data());
         Eigen::Quaterniond q(q_vec[0], q_vec[1], q_vec[2], q_vec[3]);
-        map->frame_map[i].get()->qwc = q;
-        map->frame_map[i].get()->pwc = t;
+        map->frame_map[i].get()->qcw = q;
+        // map->frame_map[i].get()->qcw = q.conjugate();
+        map->frame_map[i].get()->pcw = t;
+        // map->frame_map[i].get()->pcw = -(q.conjugate() * t);
     }
 
     for (int i = 0; i < track_num; i++) {
         Eigen::Vector3d point;
-        ss = get_line_ss(fin,valid);
-        ss >> point[0] >> point[1] >> point[2];
+        ss = get_line_ss(fin, valid);
+        ss >> point[0];
+        ss = get_line_ss(fin, valid);
+        ss >> point[1];
+        ss = get_line_ss(fin, valid);
+        ss >> point[2];
         map->track_map[i].get()->point_3D = point;
     }
 
@@ -105,12 +129,15 @@ bool BalReader::read_map() {
                 auto &track_observation_id = track_curr_observation_vec[k];
                 auto &observation = map->observation_map[track_observation_id];
                 std::map<int, std::vector<std::pair<int, int>>> other_frame;
-//                    map->frame_to_other_frame[i].clear();
-                (map->frame_to_other_frame[i])[observation->frame_id].emplace_back(frame_observation_id, observation->obs_id);
+                //                    map->frame_to_other_frame[i].clear();
+                (map->frame_to_other_frame[i])[observation->frame_id].emplace_back(
+                    frame_observation_id, observation->obs_id);
             }
         }
     }
-
+    std::cout << "map->frame_num: " << map->frame_map.size()
+              << " map->track_num: " << map->track_map.size()
+              << " map->observation_num: " << map->observation_map.size() << std::endl;
     std::cout << "read_map() over" << std::endl;
     return true;
 }
