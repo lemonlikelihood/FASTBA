@@ -7,6 +7,7 @@
 
 #include <Eigen/Eigen>
 #include <iostream>
+#include <map>
 #include <memory>
 
 class Feature {

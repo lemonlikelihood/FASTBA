@@ -51,6 +51,5 @@ int main(int argc, char *argv[]) {
     std::cout << "Final reprojection Error: " << final_error << "\n" << std::endl;
 
     solver_summary->full_information();
-
     return 0;
 }
