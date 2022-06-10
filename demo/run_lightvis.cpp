@@ -6,37 +6,126 @@
 #include "../dataset/trajectory_reader.h"
 
 class TrajectoryVisualizer : public lightvis::LightVis {
+    Eigen::Vector3d velocity_dir;
 
     Eigen::Quaterniond latest_output_q = Eigen::Quaterniond::Identity();
     Eigen::Vector3d latest_output_p = Eigen::Vector3d::Zero();
-
-    std::vector<Eigen::Vector3f> trajectory;
-    Eigen::Vector4f trajectory_color;
-
-    std::unique_ptr<TrajectoryReader> trajectory_reader;
 
     std::vector<double> frame_timestamps;
     std::vector<Pose> frame_poses;
     std::vector<cv::Mat> frame_images;
 
+    std::vector<Eigen::Vector3f> trajectory;
+    Eigen::Vector4f trajectory_color;
+
+    // default K for camera visualization in case no yaml config provided
+    Eigen::Matrix3d K = Eigen::Matrix3d {{477.0, 0.0, 240.0}, {0.0, 477.0, 320.0}, {0.0, 0.0, 1.0}};
+
+    std::unique_ptr<TrajectoryReader> trajectory_reader;
+
     int32_t is_playing = 0;
     int32_t frame_id = 0;
     int32_t target_fps = 30;
 
-    Eigen::Matrix3d K = Eigen::Matrix3d {{477.0, 0.0, 240.0}, {0.0, 477.0, 320.0}, {0.0, 0.0, 1.0}};
+    const bool with_images = false;
 
 public:
     bool traj_is_portrait = false;
 
 public:
-    TrajectoryVisualizer(const std::string &trajectory_path) : LightVis("Hello", 1600, 900) {
+    TrajectoryVisualizer(const std::string &trajectory_path) : LightVis("LVO", 1600, 900) {
         trajectory_color = {1.0, 0.25, 0.4, 1.0};
         add_trajectory(trajectory, trajectory_color);
 
+        // read trajectory
         trajectory_reader = std::make_unique<TumTrajectoryReader>(trajectory_path);
         trajectory_reader->read_poses(frame_timestamps, frame_poses);
+
+        //     if (with_images) {
+
+        //         if (data_path.size() > 8
+        //             && data_path.substr(data_path.size() - 8, 8) == std::string(".sensors")) {
+        //             printf("to load sensors data\n");
+        //             auto dataset_reader = DatasetReader::create_reader("sensors", data_path);
+        //             std::vector<std::shared_ptr<lvo::Image>> lvo_images;
+        //             bool loading_data = true;
+        //             while (loading_data) {
+        //                 DatasetReader::NextDataType next_data_type;
+        //                 while ((next_data_type = dataset_reader->next()) == DatasetReader::AGAIN) {}
+        //                 switch (next_data_type) {
+        //                     case DatasetReader::AGAIN: { // impossible but we put it here
+        //                     } break;
+        //                     case DatasetReader::GYROSCOPE: {
+        //                         dataset_reader->read_gyroscope();
+        //                     } break;
+        //                     case DatasetReader::ACCELEROMETER: {
+        //                         dataset_reader->read_accelerometer();
+        //                     } break;
+        //                     case DatasetReader::ATTITUDE: {
+        //                         dataset_reader->read_attitude();
+        //                     } break;
+        //                     case DatasetReader::GRAVITY: {
+        //                         dataset_reader->read_gravity();
+        //                     } break;
+        //                     case DatasetReader::CAMERA: {
+        //                         auto image = dataset_reader->read_image();
+        //                         lvo_images.push_back(image);
+        //                     } break;
+        //                     case DatasetReader::END: {
+        //                         loading_data = false;
+        //                     } break;
+        //                 }
+        //             }
+        //             int32_t i = 0;
+        //             int32_t j = 0;
+        //             while (i < frame_timestamps.size() && j < lvo_images.size()) {
+        //                 if (j == lvo_images.size() - 1
+        //                     || std::abs(frame_timestamps[i] - lvo_images[j]->t)
+        //                            < std::abs(frame_timestamps[i] - lvo_images[j + 1]->t)) {
+        //                     auto img = cv::Mat(
+        //                         lvo_images[j]->image.rows, lvo_images[j]->image.cols, CV_8UC1,
+        //                         lvo_images[j]->image.data);
+        //                     cv::cvtColor(img, frame_images.emplace_back(), cv::COLOR_GRAY2RGBA);
+        //                     printf(
+        //                         "frame_timestamps[%d]: %lf, lvo_images[%d]->t: %lf\n", i,
+        //                         frame_timestamps[i], j, lvo_images[j]->t);
+        //                     ++i;
+        //                 } else {
+        //                     ++j;
+        //                 }
+        //             }
+        //         } else {
+        //             CameraCsv cam_csv;
+        //             cam_csv.load(data_path + "/camera/data.csv");
+
+        //             int32_t i = 0;
+        //             int32_t j = 0;
+        //             while (i < frame_timestamps.size() && j < cam_csv.items.size()) {
+        //                 if (j == cam_csv.items.size() - 1
+        //                     || std::abs(frame_timestamps[i] - cam_csv.items[j].t)
+        //                            < std::abs(frame_timestamps[i] - cam_csv.items[j + 1].t)) {
+        //                     auto img = cv::imread(
+        //                         data_path + "/camera/images/" + cam_csv.items[j].filename,
+        //                         cv::IMREAD_GRAYSCALE);
+        //                     cv::cvtColor(img, frame_images.emplace_back(), cv::COLOR_GRAY2RGBA);
+        //                     printf(
+        //                         "frame_timestamps[%d]: %lf, cam_csv.items[%d].t: %lf\n", i,
+        //                         frame_timestamps[i], j, cam_csv.items[j].t);
+        //                     ++i;
+        //                 } else {
+        //                     ++j;
+        //                 }
+        //             }
+        //         }
+        //         printf(
+        //             "frame_timestamps.size(): %zu, frame_images.size(): %zu\n", frame_timestamps.size(),
+        //             frame_images.size());
+        //     }
+        // }
     }
+
     void load() override {}
+
     void unload() override {}
 
     bool step() {
@@ -67,78 +156,79 @@ public:
         trajectory.push_back(p);
         location() = {p.x(), p.y(), 0.0};
 
-        // if (with_images) {
-        //     constexpr int32_t obj_num_per_side = 50;
-        //     constexpr double obj_distance = 10.0;
-        //     constexpr double obj_radius = 0.5;
+        if (with_images) {
+            constexpr int32_t obj_num_per_side = 50;
+            constexpr double obj_distance = 10.0;
+            constexpr double obj_radius = 0.5;
 
-        //     cv::Mat img = frame_images[frame_id];
+            cv::Mat img = frame_images[frame_id];
 
-        //     const int target_image_longer_side_length =
-        //         static_cast<int>(2.0 * std::max(K(0, 2), K(1, 2)));
-        //     const int source_image_longer_side_length = std::max(img.rows, img.cols);
+            const int target_image_longer_side_length =
+                static_cast<int>(2.0 * std::max(K(0, 2), K(1, 2)));
+            const int source_image_longer_side_length = std::max(img.rows, img.cols);
 
-        //     if (target_image_longer_side_length != source_image_longer_side_length) {
-        //         const double scale_factor = static_cast<double>(target_image_longer_side_length)
-        //                                     / static_cast<double>(source_image_longer_side_length);
-        //         cv::resize(img, img, cv::Size(), scale_factor, scale_factor, cv::INTER_LINEAR);
-        //     }
+            if (target_image_longer_side_length != source_image_longer_side_length) {
+                const double scale_factor = static_cast<double>(target_image_longer_side_length)
+                                            / static_cast<double>(source_image_longer_side_length);
+                cv::resize(img, img, cv::Size(), scale_factor, scale_factor, cv::INTER_LINEAR);
+            }
 
-        //     for (int32_t x = -obj_num_per_side; x <= obj_num_per_side; ++x) {
-        //         for (int32_t y = -obj_num_per_side; y <= obj_num_per_side; ++y) {
-        //             const eigen::vector<3> center(x * obj_distance, y * obj_distance, 0.0);
-        //             const eigen::vector<3> center_c = pose.q.conjugate() * (center - pose.p);
-        //             const eigen::vector<2> center_px = (K * center_c).hnormalized();
-        //             if (center_px.x() < -K(0, 2) * 0.5 || center_px.x() > K(0, 2) * 2.5
-        //                 || center_px.y() < -K(1, 2) * 0.5 || center_px.y() > K(1, 2) * 2.5
-        //                 || center_c.z() < 0.0) {
-        //                 continue;
-        //             }
+            for (int32_t x = -obj_num_per_side; x <= obj_num_per_side; ++x) {
+                for (int32_t y = -obj_num_per_side; y <= obj_num_per_side; ++y) {
+                    const Eigen::Vector3d center(x * obj_distance, y * obj_distance, 0.0);
+                    const Eigen::Vector3d center_c = pose.q.conjugate() * (center - pose.p);
+                    const Eigen::Vector2d center_px = (K * center_c).hnormalized();
+                    if (center_px.x() < -K(0, 2) * 0.5 || center_px.x() > K(0, 2) * 2.5
+                        || center_px.y() < -K(1, 2) * 0.5 || center_px.y() > K(1, 2) * 2.5
+                        || center_c.z() < 0.0) {
+                        continue;
+                    }
 
-        //             cv::Scalar color = CV_RGB(0, 255, 0);
+                    cv::Scalar color = CV_RGB(0, 255, 0);
 
-        //             eigen::matrix<3, 8> global_vertices;
-        //             global_vertices.col(0) = eigen::vector<3>(
-        //                 center.x() + obj_radius, center.y() + obj_radius, center.z() + 0);
-        //             global_vertices.col(1) = eigen::vector<3>(
-        //                 center.x() + obj_radius, center.y() - obj_radius, center.z() + 0);
-        //             global_vertices.col(2) = eigen::vector<3>(
-        //                 center.x() - obj_radius, center.y() - obj_radius, center.z() + 0);
-        //             global_vertices.col(3) = eigen::vector<3>(
-        //                 center.x() - obj_radius, center.y() + obj_radius, center.z() + 0);
-        //             eigen::matrix<3, 8> camera_vertices = pose.q.conjugate().toRotationMatrix()
-        //                                                   * (global_vertices.colwise() - pose.p);
-        //             eigen::matrix<2, 8> pixel_vertices =
-        //                 (K * camera_vertices).colwise().hnormalized();
-        //             cv::line(
-        //                 img, cv::Point(pixel_vertices.col(0).x(), pixel_vertices.col(0).y()),
-        //                 cv::Point(pixel_vertices.col(1).x(), pixel_vertices.col(1).y()), color, 2,
-        //                 cv::LINE_AA);
-        //             cv::line(
-        //                 img, cv::Point(pixel_vertices.col(0).x(), pixel_vertices.col(0).y()),
-        //                 cv::Point(pixel_vertices.col(3).x(), pixel_vertices.col(3).y()), color, 2,
-        //                 cv::LINE_AA);
-        //             cv::line(
-        //                 img, cv::Point(pixel_vertices.col(2).x(), pixel_vertices.col(2).y()),
-        //                 cv::Point(pixel_vertices.col(1).x(), pixel_vertices.col(1).y()), color, 2,
-        //                 cv::LINE_AA);
-        //             cv::line(
-        //                 img, cv::Point(pixel_vertices.col(2).x(), pixel_vertices.col(2).y()),
-        //                 cv::Point(pixel_vertices.col(3).x(), pixel_vertices.col(3).y()), color, 2,
-        //                 cv::LINE_AA);
-        //         }
-        //     }
-        //     if (img.rows < img.cols) {
-        //         cv::rotate(img, img, cv::ROTATE_90_CLOCKWISE);
-        //     }
-        //     cv::imshow("AR", img);
-        //     cv::waitKey(1);
-        //     // cv::imwrite("./output/videos/" + std::to_string((unsigned long long)(timestamp * 1e9)) + ".png", img);
-        // }
+                    Eigen::Matrix<double, 3, 8> global_vertices;
+                    global_vertices.col(0) = Eigen::Vector3d(
+                        center.x() + obj_radius, center.y() + obj_radius, center.z() + 0);
+                    global_vertices.col(1) = Eigen::Vector3d(
+                        center.x() + obj_radius, center.y() - obj_radius, center.z() + 0);
+                    global_vertices.col(2) = Eigen::Vector3d(
+                        center.x() - obj_radius, center.y() - obj_radius, center.z() + 0);
+                    global_vertices.col(3) = Eigen::Vector3d(
+                        center.x() - obj_radius, center.y() + obj_radius, center.z() + 0);
+                    Eigen::Matrix<double, 3, 8> camera_vertices =
+                        pose.q.conjugate().toRotationMatrix()
+                        * (global_vertices.colwise() - pose.p);
+                    Eigen::Matrix<double, 2, 8> pixel_vertices =
+                        (K * camera_vertices).colwise().hnormalized();
+                    cv::line(
+                        img, cv::Point(pixel_vertices.col(0).x(), pixel_vertices.col(0).y()),
+                        cv::Point(pixel_vertices.col(1).x(), pixel_vertices.col(1).y()), color, 2,
+                        cv::LINE_AA);
+                    cv::line(
+                        img, cv::Point(pixel_vertices.col(0).x(), pixel_vertices.col(0).y()),
+                        cv::Point(pixel_vertices.col(3).x(), pixel_vertices.col(3).y()), color, 2,
+                        cv::LINE_AA);
+                    cv::line(
+                        img, cv::Point(pixel_vertices.col(2).x(), pixel_vertices.col(2).y()),
+                        cv::Point(pixel_vertices.col(1).x(), pixel_vertices.col(1).y()), color, 2,
+                        cv::LINE_AA);
+                    cv::line(
+                        img, cv::Point(pixel_vertices.col(2).x(), pixel_vertices.col(2).y()),
+                        cv::Point(pixel_vertices.col(3).x(), pixel_vertices.col(3).y()), color, 2,
+                        cv::LINE_AA);
+                }
+            }
+            if (img.rows < img.cols) {
+                cv::rotate(img, img, cv::ROTATE_90_CLOCKWISE);
+            }
+            cv::imshow("AR", img);
+            cv::waitKey(1);
+            // cv::imwrite("./output/videos/" + std::to_string((unsigned long long)(timestamp * 1e9)) + ".png", img);
+        }
 
         if (frame_id > 0) {
             const Eigen::Vector3d delta_p = frame_poses[frame_id].p - frame_poses[frame_id - 1].p;
-            // velocity_dir = delta_p.normalized();
+            velocity_dir = delta_p.normalized();
         }
 
         ++frame_id;
@@ -318,7 +408,7 @@ public:
             exit(0);
         }
         draw_camera(latest_output_p, latest_output_q, K, {1.0, 1.0, 0.0, 0.8}, 0.001);
-        // draw_axis();
+        draw_axis();
     }
 
     static double time_now() {
@@ -331,11 +421,11 @@ public:
 
 int main() {
     std::string trajectory_path =
-        "/Users/lemon/dataset/MH_01/mav0/state_groundtruth_estimate0/data.tum";
+        "/data/datas/EUROC/MH_01_easy/mav0/state_groundtruth_estimate0/data.tum";
     bool traj_is_portrait = false;
     TrajectoryVisualizer visualizer(trajectory_path);
     visualizer.traj_is_portrait = false;
     visualizer.show();
-    lightvis::main();
+    return lightvis::main();
     return 0;
 }
