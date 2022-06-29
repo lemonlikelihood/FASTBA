@@ -1,3 +1,5 @@
+#include "common.h"
+
 template<typename T>
 class Identifiable {
 public:

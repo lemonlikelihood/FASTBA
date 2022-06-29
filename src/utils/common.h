@@ -1,5 +1,39 @@
-#include <Eigen/Eigen>
+#pragma once
+#include <algorithm>
+#include <array>
+#include <atomic>
 #include <bitset>
+#include <chrono>
+#include <cmath>
+#include <condition_variable>
+#include <cstdarg>
+#include <cstdio>
+#include <cstdlib>
+#include <ctime>
+#include <deque>
+#include <forward_list>
+#include <iomanip>
+#include <limits>
+#include <list>
+#include <map>
+#include <memory>
+#include <mutex>
+#include <numeric>
+#include <optional>
+#include <queue>
+#include <random>
+#include <set>
+#include <sstream>
+#include <string>
+#include <thread>
+#include <tuple>
+#include <type_traits>
+#include <unordered_map>
+#include <unordered_set>
+#include <utility>
+#include <vector>
+
+#include <Eigen/Eigen>
 
 inline constexpr size_t nil() {
     return size_t(-1);

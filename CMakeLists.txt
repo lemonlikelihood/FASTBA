@@ -1,9 +1,14 @@
 cmake_minimum_required(VERSION 3.15)
-project(FASTBA)
+project(FASTBA VERSION 2.3.2.0 LANGUAGES CXX)
 
 set(CMAKE_POLICY_DEFAULT_CMP0120 OLD)
 set(CMAKE_POLICY_DEFAULT_CMP0069 NEW)
 
+include(FetchContent)
+set(FETCHCONTENT_QUIET OFF)
+
+include(GNUInstallDirs)
+include(CMakePackageConfigHelpers)
 include(CMakeDependentOption)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -11,6 +16,33 @@ SET(CMAKE_BUILD_TYPE "Release")
 
 set(THIRDPARTY_SOURCE_DIR "${CMAKE_CURRENT_LIST_DIR}/3rdparty")
 set(THIRDPARTY_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/deps")
+
+
+option(PROJECTION_BUILD_LOGGING "Should be off for release. Log code won't be compiled if off." ON)
+message(STATUS "PROJECTION_BUILD_LOGGING: ${PROJECTION_BUILD_LOGGING}")
+# 3rdparty libraries
+
+## spdlog
+
+FetchContent_Declare(
+    spdlog
+    URL https://github.com/gabime/spdlog/archive/refs/tags/v1.10.0.tar.gz
+    URL_HASH MD5=effea813cd81cfb5588806c5754e14f1
+    DOWNLOAD_NAME spdlog-1.10.0.tar.gz
+    DOWNLOAD_DIR ${THIRDPARTY_SOURCE_DIR}
+    # SOURCE_DIR ${THIRDPARTY_SOURCE_DIR}/spdlog-src
+)
+FetchContent_GetProperties(spdlog)
+if(NOT spdlog_POPULATED)
+    FetchContent_Populate(spdlog)
+endif()
+add_subdirectory(${spdlog_SOURCE_DIR} ${spdlog_BINARY_DIR})
+add_library(depends::spdlog INTERFACE IMPORTED GLOBAL)
+target_link_libraries(depends::spdlog INTERFACE spdlog::spdlog_header_only)
+set(spdlog-source-dir ${spdlog_SOURCE_DIR} CACHE INTERNAL "" FORCE)
+set(spdlog-binary-dir ${spdlog_BINARY_DIR} CACHE INTERNAL "" FORCE)
+mark_as_advanced(spdlog-source-dir)
+mark_as_advanced(spdlog-binary-dir)
 
 # eigen
 add_library(depends::eigen INTERFACE IMPORTED GLOBAL)
@@ -108,6 +140,8 @@ target_link_libraries(
            depends::nuklear
 )
 
+configure_file(src/cmake/version.h.in include/fastba/version.h)
+include_directories(${CMAKE_CURRENT_BINARY_DIR}/include)
 add_executable(FASTBA main.cpp
                src/optimizer/local_parameterization.cc
                src/optimizer/ceres_bal.cpp
@@ -136,3 +170,7 @@ target_link_libraries(run_euroc PUBLIC dep-dataset)
 
 add_executable(run_lightvis demo/run_lightvis.cpp)
 target_link_libraries(run_lightvis PUBLIC dep-dataset dep-lightvis)
+
+add_executable(run_log_forensics demo/run_log_forensics.cpp src/utils/forensics.cpp)
+target_link_libraries(run_log_forensics PUBLIC depends::spdlog)
+message("version: " ${CMAKE_CURRENT_BINARY_DIR}/include/version.h)
