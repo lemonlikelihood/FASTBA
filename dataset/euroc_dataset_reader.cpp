@@ -1,95 +1,75 @@
 #include "euroc_dataset_reader.h"
 
-#include "dior.h"
-
+#include "dataset.h"
 #include <opencv2/opencv.hpp>
+#include <yaml-cpp/yaml.h>
 
-EurocDatasetReader::EurocDatasetReader(const std::string &dior_path) {
+EurocDatasetReader::EurocDatasetReader(const std::string &euroc_path) {
+    dataset_config = std::make_unique<DatasetConfigurator>(DatasetType::EUROC, euroc_path);
+    dataset_config->load_configurator();
+    dataset_config->print_configurator();
     CameraCsv cam_csv;
-    cam_csv.load(dior_path + "/cam0/data.csv");
+    cam_csv.load(dataset_config->camera_datacsv_path());
     ImuCsv imu_csv;
-    imu_csv.load(dior_path + "/imu0/data.csv");
-    // AttitudeCsv att_csv;
-    // att_csv.load(dior_path + "/attitude/data.csv");
+    imu_csv.load(dataset_config->imu_datacsv_path());
 
-    for (auto &item : cam_csv.items) {
-        image_data.emplace_back(item.t, dior_path + "/cam0/data/" + item.filename);
-        all_data.emplace_back(item.t, NextDataType::IMAGE);
-    }
-
-    for (auto &item : imu_csv.items) {
-        Eigen::Vector3d gyr = {item.w.x, item.w.y, item.w.z};
-        gyroscope_data.emplace_back(item.t, gyr);
-        all_data.emplace_back(item.t, NextDataType::GYROSCOPE);
-
-        Eigen::Vector3d acc = {item.a.x, item.a.y, item.a.z};
-        accelerometer_data.emplace_back(item.t, acc);
-        all_data.emplace_back(item.t, NextDataType::ACCELEROMETER);
-    }
-
-    // for (auto &item : att_csv.items) {
-    //     Eigen::Vector3d gra = {item.g.x, item.g.y, item.g.z};
-    //     gravity_data.emplace_back(item.t, gra);
-    //     all_data.emplace_back(item.t, NextDataType::GRAVITY);
-
-    //     Eigen::Vector4d atti = {item.atti.x, item.atti.y, item.atti.z, item.atti.w};
-    //     attitude_data.emplace_back(item.t, atti);
-    //     all_data.emplace_back(item.t, NextDataType::ATTITUDE);
-    // }
-
-    std::sort(all_data.begin(), all_data.end(), [](auto &a, auto &b) { return a.first < b.first; });
-    std::sort(
-        image_data.begin(), image_data.end(), [](auto &a, auto &b) { return a.first < b.first; });
-    std::sort(gyroscope_data.begin(), gyroscope_data.end(), [](auto &a, auto &b) {
-        return a.first < b.first;
-    });
-    std::sort(accelerometer_data.begin(), accelerometer_data.end(), [](auto &a, auto &b) {
-        return a.first < b.first;
-    });
+    m_image_deque = cam_csv.items;
+    m_imu_deque = imu_csv.items;
 }
 
 EurocDatasetReader::~EurocDatasetReader() = default;
 
-DatasetReader::NextDataType EurocDatasetReader::next() {
-    if (all_data.empty()) {
+NextDataType EurocDatasetReader::next() {
+    if (m_image_deque.size() == 0 && m_imu_deque.size() == 0) {
         return NextDataType::END;
     }
-    auto [t, type] = all_data.front();
-    return type;
+    double t_image = std::numeric_limits<double>::max(), t_imu = std::numeric_limits<double>::max();
+    if (m_image_deque.size() > 0) {
+        t_image = m_image_deque.front().t;
+    }
+    if (m_imu_deque.size() > 0) {
+        t_imu = m_imu_deque.front().t;
+    }
+    if (t_imu < t_image) {
+        return NextDataType::IMU;
+    } else {
+        return NextDataType::IMAGE;
+    }
 }
 
-std::pair<double, std::shared_ptr<cv::Mat>> EurocDatasetReader::read_image() {
-    if (image_data.empty()) {
-        return {-1, nullptr};
-    }
-    auto [t, filename] = image_data.front();
-    cv::Mat cv_img = cv::imread(filename, cv::IMREAD_GRAYSCALE);
-
-    std::shared_ptr<cv::Mat> image = std::make_shared<cv::Mat>();
-    *image = cv_img;
-    all_data.pop_front();
-    image_data.pop_front();
-    return {t, image};
+IMUData EurocDatasetReader::read_imu() {
+    IMUData data = m_imu_deque.front();
+    m_imu_deque.pop_front();
+    return data;
 }
 
-std::pair<double, Eigen::Vector3d> EurocDatasetReader::read_gyroscope() {
-    if (gyroscope_data.empty()) {
-        return {};
+// 去畸变和直方图均衡化
+void EurocDatasetReader::preprocess_image(std::shared_ptr<ImageData> image) {
+    cv::Mat new_image;
+    cv::Mat cv_K(3, 3, CV_32FC1), cv_coeffs(1, 4, CV_32FC1);
+    auto K = dataset_config->camera_intrinsic();
+    for (int i = 0; i < 3; ++i) {
+        for (int j = 0; j < 3; ++j) {
+            cv_K.at<float>(i, j) = K(i, j);
+        }
     }
-    auto item = gyroscope_data.front();
+    auto distortion_coeffs = dataset_config->distortion_coeffs();
+    for (int i = 0; i < 4; i++) {
+        cv_coeffs.at<float>(i) = distortion_coeffs(i);
+    }
 
-    all_data.pop_front();
-    gyroscope_data.pop_front();
-    return item;
+    cv::undistort(image->image, new_image, cv_K, cv_coeffs);
+    cv::equalizeHist(new_image, new_image);
+
+    image->image = new_image;
 }
 
-std::pair<double, Eigen::Vector3d> EurocDatasetReader::read_accelerometer() {
-    if (accelerometer_data.empty()) {
-        return {};
-    }
-    auto item = accelerometer_data.front();
-
-    all_data.pop_front();
-    accelerometer_data.pop_front();
-    return item;
+std::shared_ptr<ImageData> EurocDatasetReader::read_image() {
+    auto data = m_image_deque.front();
+    m_image_deque.pop_front();
+    std::string image_absolute_path = dataset_config->camera_data_path() + "/" + data.filename;
+    // std::cout << "image_absolute_path: " << image_absolute_path << std::endl;
+    auto image_data = std::make_shared<ImageData>(data.t, image_absolute_path);
+    preprocess_image(image_data);
+    return image_data;
 }

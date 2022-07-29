@@ -1,6 +1,7 @@
 #ifndef FASTBA_DATASET_READER_H
 #define FASTBA_DATASET_READER_H
 
+#include "dataset.h"
 #include <Eigen/Eigen>
 #include <memory>
 #include <opencv2/opencv.hpp>
@@ -8,7 +9,6 @@
 
 class DatasetReader {
 public:
-    enum NextDataType { AGAIN, GYROSCOPE, ACCELEROMETER, ATTITUDE, GRAVITY, IMAGE, END };
     virtual ~DatasetReader() = default;
     virtual NextDataType next() = 0;
     virtual std::pair<double, Eigen::Vector3d> read_gyroscope() = 0;

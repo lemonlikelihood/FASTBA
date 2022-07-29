@@ -5,12 +5,10 @@
 
 std::unique_ptr<DatasetReader>
 DatasetReader::create_reader(const std::string &type, const std::string &filename) {
-    if (type == "euroc") {
-        return std::make_unique<EurocDatasetReader>(filename);
-    } else if (type == "sensors") {
-        return std::make_unique<SensorsDatasetReader>(filename);
-    } else if (type == "dior") {
-        return std::make_unique<SensorsDatasetReader>(filename);
-    } else
-        return nullptr;
+    // if (type == "sensors") {
+    //     return std::make_unique<SensorsDatasetReader>(filename);
+    // } else if (type == "dior") {
+    //     return std::make_unique<SensorsDatasetReader>(filename);
+    // } else
+    return nullptr;
 }

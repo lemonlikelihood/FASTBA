@@ -18,8 +18,7 @@ class TrajectoryVisualizer : public lightvis::LightVis {
     std::vector<Eigen::Vector3f> trajectory;
     Eigen::Vector4f trajectory_color;
 
-    // default K for camera visualization in case no yaml config provided
-    Eigen::Matrix3d K = Eigen::Matrix3d {{477.0, 0.0, 240.0}, {0.0, 477.0, 320.0}, {0.0, 0.0, 1.0}};
+    Eigen::Matrix3d K;
 
     std::unique_ptr<TrajectoryReader> trajectory_reader;
 
@@ -36,6 +35,8 @@ public:
     TrajectoryVisualizer(const std::string &trajectory_path) : LightVis("LVO", 1600, 900) {
         trajectory_color = {1.0, 0.25, 0.4, 1.0};
         add_trajectory(trajectory, trajectory_color);
+
+        K << 477, 0, 240, 0, 477, 320, 0, 0, 1;
 
         // read trajectory
         trajectory_reader = std::make_unique<TumTrajectoryReader>(trajectory_path);
@@ -144,8 +145,9 @@ public:
 
         const double timestamp = frame_timestamps[frame_id];
         Pose pose = frame_poses[frame_id];
-        const Eigen::Quaterniond dq = Eigen::Quaterniond(
-            Eigen::Matrix3d {{0.0, -1.0, 0.0}, {1.0, 0.0, 0.0}, {0.0, 0.0, 1.0}});
+        Eigen::Matrix3d rdq;
+        rdq << 0.0, -1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0;
+        const Eigen::Quaterniond dq = Eigen::Quaterniond(rdq);
         if (traj_is_portrait) {
             pose.q = pose.q * dq;
         }
@@ -420,8 +422,10 @@ public:
 };
 
 int main() {
+    // std::string trajectory_path =
+    //     "/data/datas/EUROC/MH_01_easy/mav0/state_groundtruth_estimate0/data.tum";
     std::string trajectory_path =
-        "/data/datas/EUROC/MH_01_easy/mav0/state_groundtruth_estimate0/data.tum";
+        "/Users/lemon/dataset/MH_01/mav0/state_groundtruth_estimate0/data.tum";
     bool traj_is_portrait = false;
     TrajectoryVisualizer visualizer(trajectory_path);
     visualizer.traj_is_portrait = false;

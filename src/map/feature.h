@@ -5,6 +5,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "frame.h"
 
 class Observation {
 public:
@@ -20,6 +21,29 @@ public:
 
 class Feature {
 public:
+    Feature();
+    virtual ~Feature();
+
+    const std::map<Frame *, size_t> &observation_map() const { return m_observation_map; }
+
+    bool has_observation(Frame *frame) const { return m_observation_map.count(frame) > 0; }
+
+    size_t get_observation_id(Frame *frame) const {
+        if (has_observation(frame)) {
+            return m_observation_map.at(frame);
+        } else
+            return nil();
+    }
+
+    // const Eigen::Vector2d &get_observation(Frame *frame) const {
+    //     return frame->get_observation(m_observation_map.at(frame));
+    // }
+
+    void add_observation(Frame *frame, size_t keypoint_id);
+    void remove_observation(Frame *, bool suicide_if_empty = true);
+
+    bool triangulate();
+
     size_t m_feature_id;
     /// What camera ID our pose is anchored in!! By default the first measurement is the anchor.  局部帧相机
     int m_anchor_cam_id = -1;
@@ -33,5 +57,8 @@ public:
     /// Triangulated position of this feature, in the global frame            全局标标
     Eigen::Vector3d m_p_FinG;
 
-    std::unordered_map<size_t, Observation> m_observation_map;
+    bool is_triangulated;
+
+private:
+    std::map<Frame *, size_t> m_observation_map;
 };

@@ -1,26 +1,87 @@
 #pragma once
 
+#include <Eigen/Eigen>
 #include <cstdio>
 #include <cstring>
 #include <deque>
 #include <fstream>
+#include <opencv2/opencv.hpp>
 #include <string>
 #include <vector>
 
-struct CameraCsv {
-    struct CameraData {
-        double t;
-        std::string filename;
-    };
+enum NextDataType { AGAIN, GYROSCOPE, ACCELEROMETER, ATTITUDE, GRAVITY, IMAGE, IMU, END };
 
-    std::deque<CameraData> items;
+struct Pose {
+    double t = -1.0;
+    Eigen::Quaterniond q = Eigen::Quaterniond::Identity();
+    Eigen::Vector3d p = Eigen::Vector3d::Zero();
+};
+
+struct AttitudeData {
+    double t = -1.0;
+    Eigen::Vector3d g = Eigen::Vector3d::Zero();
+    Eigen::Quaterniond q = Eigen::Quaterniond::Identity();
+};
+
+struct GyroscopeData {
+    double t = -1.0;
+    Eigen::Vector3d w = Eigen::Vector3d::Zero();
+};
+
+struct GravityData {
+    double t = -1.0;
+    Eigen::Vector3d g = Eigen::Vector3d::Zero();
+};
+
+struct IMUData {
+    double t = -1.0;
+    Eigen::Vector3d w = Eigen::Vector3d::Zero();
+    Eigen::Vector3d a = Eigen::Vector3d::Zero();
+};
+
+struct AccelerometerData {
+    double t = -1.0;
+    Eigen::Vector3d a = Eigen::Vector3d::Zero();
+};
+
+struct VelocityData {
+    double t = -1.0;
+    Eigen::Vector3d v = Eigen::Vector3d::Zero();
+    Eigen::Vector3d cov = Eigen::Vector3d::Zero();
+};
+
+struct ExtrinsicParams {
+    Eigen::Quaterniond q_bs = Eigen::Quaterniond::Identity();
+    Eigen::Vector3d p_bs = Eigen::Vector3d::Zero();
+};
+
+struct CameraCsvData {
+    double t = -1.0;
+    std::string filename;
+};
+
+struct ImageData {
+    double t = -1.0;
+    cv::Mat image;
+
+    ImageData() = default;
+    ImageData(const double &t, const std::string &filename) {
+        // std::cout << "image filename: " << filename << std::endl;
+        this->t = t;
+        image = cv::imread(filename, cv::IMREAD_GRAYSCALE);
+    }
+};
+
+struct CameraCsv {
+
+    std::deque<CameraCsvData> items;
 
     void load(const std::string &filename) {
         items.clear();
         if (FILE *csv = fopen(filename.c_str(), "r")) {
             fscanf(csv, "%*[^\r\n]");
             char filename_buffer[2048];
-            CameraData item;
+            CameraCsvData item;
             while (not feof(csv)) {
                 memset(filename_buffer, 0, 2048);
                 if (fscanf(csv, "%lf,%2047[^\r\n]%*[\r\n]", &item.t, filename_buffer) != 2) {
@@ -30,6 +91,8 @@ struct CameraCsv {
                 items.emplace_back(std::move(item));
             }
             fclose(csv);
+            std::cout << "load " << filename << " successfully and " << items.size() << " images."
+                      << std::endl;
         }
     }
 
@@ -45,35 +108,22 @@ struct CameraCsv {
 };
 
 struct ImuCsv {
-    struct ImuData {
-        double t;
-        struct {
-            double x;
-            double y;
-            double z;
-        } w;
-        struct {
-            double x;
-            double y;
-            double z;
-        } a;
-    };
-
-    std::deque<ImuData> items;
-
+    std::deque<IMUData> items;
     void load(const std::string &filename) {
         items.clear();
         if (FILE *csv = fopen(filename.c_str(), "r")) {
             fscanf(csv, "%*[^\r\n]");
-            ImuData item;
+            IMUData item;
             while (not feof(csv)
                    && fscanf(
-                          csv, "%lf,%lf,%lf,%lf,%lf,%lf,%lf%*[\r\n]", &item.t, &item.w.x, &item.w.y,
-                          &item.w.z, &item.a.x, &item.a.y, &item.a.z)
+                          csv, "%lf,%lf,%lf,%lf,%lf,%lf,%lf%*[\r\n]", &item.t, &item.w.x(),
+                          &item.w.y(), &item.w.z(), &item.a.x(), &item.a.y(), &item.a.z())
                           == 7) {
                 items.emplace_back(std::move(item));
             }
             fclose(csv);
+            std::cout << "load " << filename << " successfully and " << items.size() << " imus."
+                      << std::endl;
         }
     }
 
@@ -85,8 +135,8 @@ struct ImuCsv {
                 csv);
             for (auto item : items) {
                 fprintf(
-                    csv, "%.9lf,%.9lf,%.9lf,%.9lf,%.9lf,%.9lf,%.9lf\n", item.t, item.w.x, item.w.y,
-                    item.w.z, item.a.x, item.a.y, item.a.z);
+                    csv, "%.9lf,%.9lf,%.9lf,%.9lf,%.9lf,%.9lf,%.9lf\n", item.t, item.w.x(),
+                    item.w.y(), item.w.z(), item.a.x(), item.a.y(), item.a.z());
             }
             fclose(csv);
         }
@@ -94,20 +144,6 @@ struct ImuCsv {
 };
 
 struct AttitudeCsv {
-    struct AttitudeData {
-        double t;
-        struct {
-            double x;
-            double y;
-            double z;
-        } g;
-        struct {
-            double x;
-            double y;
-            double z;
-            double w;
-        } atti;
-    };
 
     std::deque<AttitudeData> items;
 
@@ -118,9 +154,9 @@ struct AttitudeCsv {
             AttitudeData item;
             while (not feof(csv)
                    && fscanf(
-                          csv, "%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf%*[\r\n]", &item.t, &item.g.x,
-                          &item.g.y, &item.g.z, &item.atti.x, &item.atti.y, &item.atti.z,
-                          &item.atti.w)
+                          csv, "%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf%*[\r\n]", &item.t, &item.g.x(),
+                          &item.g.y(), &item.g.z(), &item.q.x(), &item.q.y(), &item.q.z(),
+                          &item.q.w())
                           == 8) {
                 items.emplace_back(std::move(item));
             }
@@ -136,8 +172,8 @@ struct AttitudeCsv {
                 csv);
             for (auto item : items) {
                 fprintf(
-                    csv, "%.9e,%.9lf,%.9lf,%.9lf,%.9lf,%.9lf,%.9lf,%.9lf\n", item.t, item.g.x,
-                    item.g.y, item.g.z, item.atti.x, item.atti.y, item.atti.z, item.atti.w);
+                    csv, "%.9e,%.9lf,%.9lf,%.9lf,%.9lf,%.9lf,%.9lf,%.9lf\n", item.t, item.g.x(),
+                    item.g.y(), item.g.z(), item.q.x(), item.q.y(), item.q.z(), item.q.w());
             }
             fclose(csv);
         }

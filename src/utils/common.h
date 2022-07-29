@@ -33,48 +33,12 @@
 #include <utility>
 #include <vector>
 
+#include "debug.h"
 #include <Eigen/Eigen>
 
 inline constexpr size_t nil() {
     return size_t(-1);
 }
-
-struct Pose {
-    Eigen::Quaterniond q = Eigen::Quaterniond::Identity();
-    Eigen::Vector3d p = Eigen::Vector3d::Zero();
-};
-
-struct Attitude {
-    double t = -1.0;
-    Eigen::Quaterniond q = Eigen::Quaterniond::Identity();
-    Eigen::Vector3d v = Eigen::Vector3d::Zero();
-};
-
-struct Gyroscope {
-    double t = -1.0;
-    Eigen::Vector3d g = Eigen::Vector3d::Zero();
-};
-
-struct Gravity {
-    double t = -1.0;
-    Eigen::Vector3d g = Eigen::Vector3d::Zero();
-};
-
-struct Accelerometer {
-    double t = -1.0;
-    Eigen::Vector3d a = Eigen::Vector3d::Zero();
-};
-
-struct Velocity {
-    double t = -1.0;
-    Eigen::Vector3d v = Eigen::Vector3d::Zero();
-    Eigen::Vector3d cov = Eigen::Vector3d::Zero();
-};
-
-struct ExtrinsicParams {
-    Eigen::Quaterniond q_cs = Eigen::Quaterniond::Identity();
-    Eigen::Vector3d p_cs = Eigen::Vector3d::Zero();
-};
 
 template<class FlagEnum>
 struct Flagged {

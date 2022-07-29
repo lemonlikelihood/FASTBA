@@ -1,9 +1,10 @@
 #include "../dataset/euroc_dataset_reader.h"
+#include "../src/fastba/fastba.h"
+#include "../src/utils/debug.h"
 
 int main() {
-    std::string euroc_path = "/data/datas/EUROC/MH_01_easy/mav0";
-    std::unique_ptr<DatasetReader> dataset_reader =
-        DatasetReader::create_reader("euroc", euroc_path);
+    std::string euroc_path = "/Users/lemon/dataset/MH_01";
+    auto dataset_reader = std::make_unique<EurocDatasetReader>(euroc_path);
 
     double t;
     Eigen::Vector3d w;
@@ -11,28 +12,30 @@ int main() {
     Eigen::Vector4d atti;
     Eigen::Vector3d gravity;
     std::shared_ptr<cv::Mat> image;
-    while (true) {
-        DatasetReader::NextDataType next_data_type;
-        while ((next_data_type = dataset_reader->next()) == DatasetReader::AGAIN) {}
-        switch (next_data_type) {
-            case DatasetReader::AGAIN: { // impossible but we put it here
-            } break;
-            case DatasetReader::GYROSCOPE: {
-                std::tie(t, w) = dataset_reader->read_gyroscope();
-                std::cout << "w: " << t << " " << w.transpose() << std::endl;
-            } break;
-            case DatasetReader::ACCELEROMETER: {
-                std::tie(t, a) = dataset_reader->read_accelerometer();
-                std::cout << "w: " << t << " " << w.transpose() << std::endl;
-            } break;
-            case DatasetReader::IMAGE: {
-                std::tie(t, image) = dataset_reader->read_image();
 
-                std::cout << "i: " << t << std::endl;
-                cv::imshow("image", *image);
-                cv::waitKey(0);
+    FASTBA fastba;
+    while (true) {
+        NextDataType next_data_type;
+        while ((next_data_type = dataset_reader->next()) == NextDataType::AGAIN) {}
+        switch (next_data_type) {
+            case NextDataType::AGAIN: { // impossible but we put it here
+                log_error("dataset again shouldn't appear!");
             } break;
-            case DatasetReader::END: {
+            case NextDataType::IMU: {
+                // log_debug("get imu");
+                IMUData imu = dataset_reader->read_imu();
+                log_info("U: {} {} {}", imu.t, imu.w.transpose(), imu.a.transpose());
+            } break;
+            case NextDataType::IMAGE: {
+                // log_debug("get image");
+                auto image = dataset_reader->read_image();
+                fastba.feed_image(image, dataset_reader->dataset_config.get());
+                log_info("I: {}", image->t);
+                cv::imshow("image", image->image);
+                cv::waitKey(1);
+            } break;
+            case NextDataType::END: {
+                log_info("get end");
                 // exit(EXIT_SUCCESS);
                 return 1;
             } break;

@@ -18,11 +18,11 @@ DiorDatasetReader::DiorDatasetReader(const std::string &dior_path) {
     }
 
     for (auto &item : imu_csv.items) {
-        Eigen::Vector3d gyr = {item.w.x, item.w.y, item.w.z};
+        Eigen::Vector3d gyr = {item.w.x(), item.w.y(), item.w.z()};
         gyroscope_data.emplace_back(item.t, gyr);
         all_data.emplace_back(item.t, NextDataType::GYROSCOPE);
 
-        Eigen::Vector3d acc = {item.a.x, item.a.y, item.a.z};
+        Eigen::Vector3d acc = {item.a.x(), item.a.y, item.a.z};
         accelerometer_data.emplace_back(item.t, acc);
         all_data.emplace_back(item.t, NextDataType::ACCELEROMETER);
     }
