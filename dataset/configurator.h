@@ -1,4 +1,5 @@
 #pragma once
+#include "dataset.h"
 #include <string>
 #include <yaml-cpp/yaml.h>
 
@@ -95,13 +96,13 @@ public:
 
     Eigen::Vector4d distortion_coeffs() const { return m_distortion_coeffs; }
 
-    Eigen::Quaterniond camera_to_center_rotation() const { return m_q_cam2body; }
+    Eigen::Quaterniond camera_to_body_rotation() const { return m_q_cam2body; }
 
-    Eigen::Vector3d camera_to_center_translation() const { return m_p_cam2body; }
+    Eigen::Vector3d camera_to_body_translation() const { return m_p_cam2body; }
 
-    Eigen::Quaterniond imu_to_center_rotation() const { return m_q_imu2body; }
+    Eigen::Quaterniond imu_to_body_rotation() const { return m_q_imu2body; }
 
-    Eigen::Vector3d imu_to_center_translation() const { return m_p_imu2body; }
+    Eigen::Vector3d imu_to_body_translation() const { return m_p_imu2body; }
 
     Eigen::Matrix3d imu_gyro_white_noise() const { return m_gyro_noise; }
 

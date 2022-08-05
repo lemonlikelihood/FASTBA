@@ -1,5 +1,7 @@
 #include "tracker.h"
 #include "../utils/common.h"
+#include "feature.h"
+#include "frame.h"
 #include "grider_fast.h"
 
 TrackerBase::TrackerBase() : m_num_features(200) {}
@@ -102,12 +104,25 @@ bool KLTTracker::track_monocular(Frame *frame) {
     if (m_pts_last.empty()) {
         detect_keypoints(imgpyr, m_pts_last);
         m_img_pyramid_last = imgpyr;
+        m_last_frame = frame;
         log_debug("sucess");
         return true;
     }
 
-    detect_keypoints(imgpyr, m_pts_last);
+    detect_keypoints(
+        m_img_pyramid_last, m_pts_last); // m_pts_last 先对上一帧图像提取新的特征点，再跟踪
     // Our return success masks, and predicted new features
+
+    m_last_frame->m_features.resize(m_pts_last.size(), nullptr);
+    m_last_frame->m_keypoints.resize(m_pts_last.size());
+    m_last_frame->m_keypoints_normalized.resize(m_pts_last.size());
+    m_last_frame->m_reprojection_factors.resize(m_pts_last.size());
+    for (int i = 0; i < m_pts_last.size(); i++) {
+        Eigen::Vector2d keypoint {m_pts_last[i].pt.x, m_pts_last[i].pt.y};
+        m_last_frame->m_keypoints[i] = keypoint;
+        m_last_frame->m_keypoints_normalized[i] = m_last_frame->remove_k(keypoint);
+    }
+
     std::vector<uchar> mask_ll;
     std::vector<cv::KeyPoint> pts_left_new = m_pts_last;
 
@@ -116,19 +131,21 @@ bool KLTTracker::track_monocular(Frame *frame) {
         m_img_pyramid_last, imgpyr, m_pts_last, pts_left_new,
         mask_ll); // mask_ll 表明track是否成功
 
+    log_info("track success");
+
     //===================================================================================
     //===================================================================================
 
     // If any of our mask is empty, that means we didn't have enough to do ransac, so just return
     if (mask_ll.empty()) {
         m_img_pyramid_last = imgpyr;
+        m_last_frame = frame;
         m_pts_last.clear();
         log_error("[KLT-EXTRACTOR]: Failed to get enough points to do RANSAC, resetting.....");
         return false;
     }
 
-    std::vector<cv::KeyPoint> good_left;
-    std::vector<size_t> good_ids_left;
+    std::vector<cv::KeyPoint> good_tracked_keypoints;
 
     // Loop through all left points
     for (size_t i = 0; i < pts_left_new.size(); i++) {
@@ -137,23 +154,22 @@ bool KLTTracker::track_monocular(Frame *frame) {
             continue;
         // If it is a good track, and also tracked from left to right
         if (mask_ll[i]) {
-            good_left.push_back(pts_left_new[i]);
+            size_t next_keypoint_id = frame->m_keypoints.size();
+            good_tracked_keypoints.push_back(pts_left_new[i]);
+            Eigen::Vector2d keypoint {pts_left_new[i].pt.x, pts_left_new[i].pt.y};
+            frame->m_keypoints.emplace_back(keypoint);
+            frame->m_keypoints_normalized.emplace_back(frame->remove_k(keypoint));
+            frame->m_features.emplace_back(nullptr);
+            frame->m_reprojection_factors.emplace_back(nullptr);
+            log_info("add feature");
+            m_last_frame->get_feature_if_empty_create(i)->add_observation(frame, next_keypoint_id);
+            log_info("add feature success");
         }
     }
 
-    // for (size_t i = 0; i < good_left.size(); i++) {
-    //     cv::Point2f npt_l =
-    //         undistort_point(good_left.at(i).pt, cam_id); // 原始图像上去畸变后的特征点
-    //     database->update_feature(
-    //         good_ids_left.at(i), timestamp, cam_id, good_left.at(i).pt.x, good_left.at(i).pt.y,
-    //         npt_l.x, npt_l.y);
-    // }
-
-    // img_last[cam_id] = img.clone(); // 时间上后移
     m_img_pyramid_last = imgpyr;
-    m_pts_last = good_left;
-
-    for (size_t i = 0; i < good_left.size(); i++) {}
+    m_pts_last = good_tracked_keypoints;
+    m_last_frame = frame;
 
     return true;
 }

@@ -1,11 +1,15 @@
-// #include "type.h"
 #pragma once
 #include "../../dataset/dataset.h"
 #include "../utils/identifiable.h"
 #include <Eigen/Eigen>
 #include <opencv2/opencv.hpp>
 
+#include "../optimizer/factor.h"
+#include "../optimizer/preintegrator.h"
+
 class Feature;
+class SlidingWindow;
+class Map;
 
 struct create_if_empty_t {};
 extern create_if_empty_t create_if_empty;
@@ -22,8 +26,41 @@ enum class FrameFlag {
 
 class Frame : public Flagged<FrameFlag>, public Identifiable<Frame> {
     friend class Feature;
+    friend class SlidingWindow;
 
 public:
+    Eigen::Vector2d remove_k(const Eigen::Vector2d &p);
+    Eigen::Vector2d apply_k(const Eigen::Vector2d &p);
+
+    size_t keypoint_num() const { return m_keypoints.size(); }
+
+    const Eigen::Vector2d &get_keypoint(size_t keypoint_id) const {
+        return m_keypoints[keypoint_id];
+    }
+
+    void append_keypoint(const Eigen::Vector2d &keypoint);
+
+    const Eigen::Vector2d &get_keypoint_normalized(size_t keypoint_id) const {
+        return m_keypoints_normalized[keypoint_id];
+    }
+
+    Feature *get_feature(size_t keypoint_id) const { return m_features[keypoint_id]; }
+
+    Feature *get_feature_if_empty_create(size_t keypoint_id);
+
+    Factor *get_preintegration_factor() { return m_preintegration_factor.get(); }
+
+    Factor *get_reprojection_factor(size_t keypoint_index) {
+        return m_reprojection_factors[keypoint_index].get();
+    }
+
+    Pose get_camera_pose() const;
+    Pose get_imu_pose() const;
+    Pose get_body_pose() const;
+
+    void set_camera_pose(const Pose &pose);
+    void set_imu_pose(const Pose &pose);
+
     int m_index_in_map;
     double m_timestamp;
     std::string m_camera_model;
@@ -31,6 +68,7 @@ public:
     int m_camera_id;
 
     Eigen::Matrix3d m_K;
+    Eigen::Matrix2d m_sqrt_inv_cov;
     std::shared_ptr<ImageData> m_image;
 
     std::vector<Eigen::Vector2d, Eigen::aligned_allocator<Eigen::Vector2d>> m_keypoints;
@@ -43,13 +81,14 @@ public:
 
     ExtrinsicParams m_camera_extri;
     ExtrinsicParams m_imu_extri;
+    MotionState motion;
 
+    PreIntegrator m_preintegration;
 
-    // void detect_keypoints(Config *config, KeypointDetectionMode keypoint_detection_mode);
+    SlidingWindow *m_sliding_window;
 
-    // // void detect_keypoints(Config *config, KeypointDetectionMode keypoint_detection_mode);
+    Map *m_map;
 
-    // void track_keypoints(Config *config, Frame *next_frame, std::vector<uint8_t> &status);
-
-    // TrackBase *trackFEATS = nullptr;
+    std::vector<std::unique_ptr<Factor>> m_reprojection_factors;
+    std::unique_ptr<Factor> m_preintegration_factor;
 };

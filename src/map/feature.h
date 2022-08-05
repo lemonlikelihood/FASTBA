@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "frame.h"
+#include "sliding_window.h"
 
 class Observation {
 public:
@@ -22,7 +23,7 @@ public:
 class Feature {
 public:
     Feature();
-    virtual ~Feature();
+    ~Feature();
 
     const std::map<Frame *, size_t> &observation_map() const { return m_observation_map; }
 
@@ -35,16 +36,16 @@ public:
             return nil();
     }
 
-    // const Eigen::Vector2d &get_observation(Frame *frame) const {
-    //     return frame->get_observation(m_observation_map.at(frame));
-    // }
+    const Eigen::Vector2d &get_observation(Frame *frame) const {
+        return frame->get_keypoint(m_observation_map.at(frame));
+    }
 
     void add_observation(Frame *frame, size_t keypoint_id);
     void remove_observation(Frame *, bool suicide_if_empty = true);
 
     bool triangulate();
 
-    size_t m_feature_id;
+    size_t m_feature_id_in_sliding_window;
     /// What camera ID our pose is anchored in!! By default the first measurement is the anchor.  局部帧相机
     int m_anchor_cam_id = -1;
 
@@ -57,7 +58,9 @@ public:
     /// Triangulated position of this feature, in the global frame            全局标标
     Eigen::Vector3d m_p_FinG;
 
-    bool is_triangulated;
+    bool m_is_triangulated;
+
+    SlidingWindow *m_sliding_window;
 
 private:
     std::map<Frame *, size_t> m_observation_map;

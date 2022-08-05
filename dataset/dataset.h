@@ -10,6 +10,14 @@
 #include <vector>
 
 enum NextDataType { AGAIN, GYROSCOPE, ACCELEROMETER, ATTITUDE, GRAVITY, IMAGE, IMU, END };
+enum ErroeStateLocation {
+    ES_Q = 0,
+    ES_P = 3,
+    ES_V = 6,
+    ES_BG = 9,
+    ES_BA = 12,
+    ES_SIZE = 15,
+};
 
 struct Pose {
     double t = -1.0;
@@ -51,8 +59,20 @@ struct VelocityData {
 };
 
 struct ExtrinsicParams {
-    Eigen::Quaterniond q_bs = Eigen::Quaterniond::Identity();
-    Eigen::Vector3d p_bs = Eigen::Vector3d::Zero();
+    Eigen::Quaterniond q_sensor2body = Eigen::Quaterniond::Identity();
+    Eigen::Vector3d p_sensor2body = Eigen::Vector3d::Zero();
+};
+
+struct MotionState {
+    MotionState() {
+        v.setZero();
+        bg.setZero();
+        ba.setZero();
+    }
+
+    Eigen::Vector3d v;
+    Eigen::Vector3d bg;
+    Eigen::Vector3d ba;
 };
 
 struct CameraCsvData {
@@ -174,6 +194,44 @@ struct AttitudeCsv {
                 fprintf(
                     csv, "%.9e,%.9lf,%.9lf,%.9lf,%.9lf,%.9lf,%.9lf,%.9lf\n", item.t, item.g.x(),
                     item.g.y(), item.g.z(), item.q.x(), item.q.y(), item.q.z(), item.q.w());
+            }
+            fclose(csv);
+        }
+    }
+};
+
+struct EurocPoseCsv {
+
+    std::deque<Pose> items;
+
+    void load(const std::string &filename) {
+        items.clear();
+        if (FILE *csv = fopen(filename.c_str(), "r")) {
+            fscanf(csv, "%*[^\r\n]");
+            Pose item;
+            while (not feof(csv)
+                   && fscanf(
+                          csv, "%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf%*[\r\n]", &item.t, &item.p.x(),
+                          &item.p.y(), &item.p.z(), &item.q.w(), &item.q.x(), &item.q.y(),
+                          &item.q.z())
+                          == 8) {
+                item.t = item.t * 1.0e-9;
+                items.emplace_back(std::move(item));
+            }
+            fclose(csv);
+        }
+    }
+
+    void save(const std::string &filename) const {
+        if (FILE *csv = fopen(filename.c_str(), "w")) {
+            fputs(
+                "#t[s:double],p.x[m:double],p.y[m:double],p.z[m"
+                ":double],q.x[double],q.y[double],q.z[double],q.w[double]\n",
+                csv);
+            for (auto item : items) {
+                fprintf(
+                    csv, "%.9e,%.9lf,%.9lf,%.9lf,%.9lf,%.9lf,%.9lf,%.9lf\n", item.t, item.p.x(),
+                    item.p.y(), item.p.z(), item.q.x(), item.q.y(), item.q.z(), item.q.w());
             }
             fclose(csv);
         }

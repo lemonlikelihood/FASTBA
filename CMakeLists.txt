@@ -266,7 +266,15 @@ add_executable(run_euroc
                 src/fastba/fastba.cpp 
                 src/map/frame.cpp 
                 src/map/map.cpp
-                src/map/tracker.cpp)
+                src/map/sliding_window.cpp
+                src/map/tracker.cpp
+                src/map/feature.cpp
+                src/optimizer/ceres/preintegration_error_cost.h
+                src/optimizer/ceres/reprojection_error_cost.h
+                src/optimizer/factor.cpp
+                src/optimizer/lie_algebra.cpp
+                src/optimizer/preintegrator.cpp)
+
 target_link_libraries(run_euroc PUBLIC dep-dataset depends::spdlog)
 
 add_executable(run_lightvis demo/run_lightvis.cpp)

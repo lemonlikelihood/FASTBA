@@ -2,6 +2,7 @@
 #include "../../dataset/configurator.h"
 #include "../map/frame.h"
 #include "../map/map.h"
+#include "../map/sliding_window.h"
 #include "../map/tracker.h"
 #include <opencv2/opencv.hpp>
 
@@ -17,4 +18,5 @@ public:
     std::unique_ptr<Frame> last_frame;
     bool m_initialized;
     std::unique_ptr<TrackerBase> tracker;
+    std::unique_ptr<SlidingWindow> m_sliding_window;
 };

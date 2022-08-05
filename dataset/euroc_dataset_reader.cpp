@@ -12,6 +12,12 @@ EurocDatasetReader::EurocDatasetReader(const std::string &euroc_path) {
     cam_csv.load(dataset_config->camera_datacsv_path());
     ImuCsv imu_csv;
     imu_csv.load(dataset_config->imu_datacsv_path());
+    EurocPoseCsv pose_csv;
+    std::string gt_pose_filename = euroc_path + "/mav0/state_groundtruth_estimate0/data.csv";
+    pose_csv.load(gt_pose_filename);
+    for (auto x : pose_csv.items) {
+        m_gt_pose_map[x.t] = x;
+    }
 
     m_image_deque = cam_csv.items;
     m_imu_deque = imu_csv.items;
@@ -72,4 +78,31 @@ std::shared_ptr<ImageData> EurocDatasetReader::read_image() {
     auto image_data = std::make_shared<ImageData>(data.t, image_absolute_path);
     preprocess_image(image_data);
     return image_data;
+}
+
+Pose EurocDatasetReader::get_groundtruth_pose(double t) const {
+    if (m_gt_pose_map.size() == 0) {
+        Pose pose;
+        pose.t = -1;
+        pose.p.setZero();
+        pose.q.setIdentity();
+        return pose;
+    } else if (m_gt_pose_map.count(t) > 0) {
+        return m_gt_pose_map.at(t);
+    } else {
+        auto it = m_gt_pose_map.lower_bound(t);
+        if (it == m_gt_pose_map.begin()) {
+            return it->second;
+        } else if (it == m_gt_pose_map.end()) {
+            return m_gt_pose_map.rbegin()->second;
+        } else {
+            auto it0 = std::prev(it);
+            double lambda = (t - it0->first) / (it->first - it0->first);
+            Pose pose;
+            pose.t = t;
+            pose.q = it0->second.q.slerp(lambda, it->second.q);
+            pose.p = it0->second.p * (1 - lambda) + it->second.p * lambda;
+            return pose;
+        }
+    }
 }
