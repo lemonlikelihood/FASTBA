@@ -18,17 +18,20 @@ public:
 
     void clear();
 
-    size_t frame_num() const { return m_frames.size(); }
+    size_t frame_num() const { return frames.size(); }
 
-    Frame *get_frame(size_t id) const { return m_frames[id].get(); }
+    Frame *get_frame(size_t id) const { return frames[id].get(); }
 
-    void put_frame(std::unique_ptr<Frame> frame, size_t pos = nil());
+    Frame *get_last_frame() const { return frames[frames.size() - 1].get(); }
+    Frame *get_second_to_last_frame() const { return frames[frames.size() - 2].get(); }
+
+    void append_frame(std::unique_ptr<Frame> frame, size_t pos = nil());
 
     void erase_frame(size_t id);
 
-    size_t feature_num() const { return m_features.size(); }
+    size_t feature_num() const { return features.size(); }
 
-    Feature *get_feature(size_t id) const { return m_features[id].get(); }
+    Feature *get_feature(size_t id) const { return features[id].get(); }
 
     void erase_feature(Feature *feature);
 
@@ -36,8 +39,12 @@ public:
 
     void prune_features(const std::function<bool(const Feature *)> &condition);
 
+    void compute_reprojections();
+
+    void log_feature_reprojections();
+
 private:
     void recycle_feature(Feature *feature);
-    std::deque<std::unique_ptr<Frame>> m_frames;
-    std::vector<std::unique_ptr<Feature>> m_features;
+    std::deque<std::unique_ptr<Frame>> frames;
+    std::vector<std::unique_ptr<Feature>> features;
 };

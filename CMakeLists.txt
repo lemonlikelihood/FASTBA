@@ -148,7 +148,7 @@ mark_as_advanced(eigen-source-dir)
 mark_as_advanced(eigen-binary-dir)
 
 # opencv 
-find_package(OpenCV REQUIRED)
+find_package(OpenCV 4 REQUIRED)
 add_library(depends::opencv INTERFACE IMPORTED GLOBAL)
 target_link_libraries(depends::opencv INTERFACE ${OpenCV_LIBS})
 
@@ -256,10 +256,11 @@ target_sources(dep-dataset PUBLIC
                dataset/dataset_reader.cpp
             #    dataset/dior_dataset_reader.cpp
                dataset/euroc_dataset_reader.cpp
+               dataset/opencv_image.cpp
             #    dataset/libsensors.cpp
             #    dataset/sensors_dataset_reader.cpp
                )
-target_link_libraries(dep-dataset depends::eigen depends::ceres depends::opencv depends::yaml-cpp)
+target_link_libraries(dep-dataset depends::eigen depends::ceres depends::opencv depends::yaml-cpp depends::spdlog)
 
 add_executable(run_euroc 
                 demo/run_euroc.cpp 
@@ -267,18 +268,25 @@ add_executable(run_euroc
                 src/map/frame.cpp 
                 src/map/map.cpp
                 src/map/sliding_window.cpp
-                src/map/tracker.cpp
+                # src/map/tracker.cpp
                 src/map/feature.cpp
                 src/optimizer/ceres/preintegration_error_cost.h
                 src/optimizer/ceres/reprojection_error_cost.h
                 src/optimizer/factor.cpp
-                src/optimizer/lie_algebra.cpp
-                src/optimizer/preintegrator.cpp)
+                src/optimizer/preintegrator.cpp
+                src/optimizer/pnp.cpp
+                src/optimizer/bundle_adjustor.cpp
+                src/optimizer/initializer.cpp
+                src/geometry/stereo.cpp
+                src/geometry/essential.cpp
+                src/geometry/homography.cpp
+                src/geometry/lie_algebra.cpp
+                )
 
-target_link_libraries(run_euroc PUBLIC dep-dataset depends::spdlog)
+target_link_libraries(run_euroc PUBLIC dep-dataset depends::spdlog depends::opencv)
 
-add_executable(run_lightvis demo/run_lightvis.cpp)
-target_link_libraries(run_lightvis PUBLIC dep-dataset dep-lightvis)
+# add_executable(run_lightvis demo/run_lightvis.cpp)
+# target_link_libraries(run_lightvis PUBLIC dep-dataset dep-lightvis)
 
 # add_executable(run_log_forensics demo/run_log_forensics.cpp src/utils/forensics.cpp)
 # target_link_libraries(run_log_forensics PUBLIC depends::spdlog)

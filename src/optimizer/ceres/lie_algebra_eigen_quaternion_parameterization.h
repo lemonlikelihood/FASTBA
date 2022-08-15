@@ -1,8 +1,8 @@
 #pragma once
 
-#include <slamtools/common.h>
+#include "../../utils/common.h"
 #include <ceres/ceres.h>
-#include <slamtools/lie_algebra.h>
+#include "../../geometry/lie_algebra.h"
 
 // 右乘增量，再算jacobian 的时候要用右扰动
 struct LieAlgebraEigenQuaternionParamatrization : public ceres::LocalParameterization {

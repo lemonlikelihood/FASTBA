@@ -13,8 +13,7 @@ public:
     ~EurocDatasetReader();
     NextDataType next();
     IMUData read_imu();
-    std::shared_ptr<ImageData> read_image();
-    void preprocess_image(std::shared_ptr<ImageData> image);
+    std::shared_ptr<Image> read_image();
     std::unique_ptr<DatasetConfigurator> dataset_config;
     Pose get_groundtruth_pose(double t) const;
 

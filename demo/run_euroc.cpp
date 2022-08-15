@@ -1,9 +1,10 @@
 #include "../dataset/euroc_dataset_reader.h"
 #include "../src/fastba/fastba.h"
+#include "../src/geometry/lie_algebra.h"
 #include "../src/utils/debug.h"
 
 int main() {
-    std::string euroc_path = "/Users/lemon/dataset/MH_01";
+    std::string euroc_path = "/Users/lemon/dataset/MH_02";
     auto dataset_reader = std::make_unique<EurocDatasetReader>(euroc_path);
 
     double t;
@@ -11,7 +12,7 @@ int main() {
     Eigen::Vector3d a;
     Eigen::Vector4d atti;
     Eigen::Vector3d gravity;
-    std::shared_ptr<cv::Mat> image;
+    // std::shared_ptr<cv::Mat> image;
 
     FASTBA fastba;
     while (true) {
@@ -24,13 +25,30 @@ int main() {
             case NextDataType::IMU: {
                 // log_debug("get imu");
                 IMUData imu = dataset_reader->read_imu();
-                log_info("U: {} {} {}", imu.t, imu.w.transpose(), imu.a.transpose());
+                fastba.feed_imu(imu);
+                // log_info("U: {} {} {}", imu.t, imu.w.transpose(), imu.a.transpose());
             } break;
             case NextDataType::IMAGE: {
                 // log_debug("get image");
                 auto image = dataset_reader->read_image();
+                Pose imu_pose = dataset_reader->get_groundtruth_pose(image->t);
+                // log_info("image t: {}", image->t);
+                // log_info("imu t: {}", imu_pose.t);
+                // log_info("imu R: {}", imu_pose.q.coeffs().transpose());
+                // log_info("imu t: {}", imu_pose.p.transpose());
+                Pose cam_pose;
+                cam_pose.q = imu_pose.q * dataset_reader->dataset_config->camera_to_body_rotation();
+                cam_pose.p =
+                    imu_pose.p
+                    + imu_pose.q * dataset_reader->dataset_config->camera_to_body_translation();
+
+                // Eigen::Matrix3d gt_essential = hat(cam_pose.p) * cam_pose.q.toRotationMatrix();
+                // log_info("gt essential: \n{}", gt_essential);
+                // log_info("gt R: {}", cam_pose.q.coeffs().transpose());
+                // log_info("gt t: {}", cam_pose.p.transpose());
                 fastba.feed_image(image, dataset_reader->dataset_config.get());
-                log_info("I: {}", image->t);
+                // fastba.feed_gt_camera_pose(cam_pose);
+                // log_info("I: {}", image->t);
                 cv::imshow("image", image->image);
                 cv::waitKey(1);
             } break;

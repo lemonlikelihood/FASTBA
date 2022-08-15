@@ -20,48 +20,46 @@ public:
     Eigen::Vector2d uv;
 };
 
-class Feature {
+enum class FeatureFlag { FF_VALID = 0, FF_TRIANGULATED, FLAG_NUM };
+
+class Feature : public Flagged<FeatureFlag> {
 public:
     Feature();
     ~Feature();
 
-    const std::map<Frame *, size_t> &observation_map() const { return m_observation_map; }
+    const std::map<Frame *, size_t> &observation_map() const { return observation_refs; }
 
-    bool has_observation(Frame *frame) const { return m_observation_map.count(frame) > 0; }
+    bool has_observation(Frame *frame) const { return observation_refs.count(frame) > 0; }
 
-    size_t get_observation_id(Frame *frame) const {
+    size_t get_observation_index(Frame *frame) const {
         if (has_observation(frame)) {
-            return m_observation_map.at(frame);
+            return observation_refs.at(frame);
         } else
             return nil();
     }
 
     const Eigen::Vector2d &get_observation(Frame *frame) const {
-        return frame->get_keypoint(m_observation_map.at(frame));
+        return frame->get_keypoint(observation_refs.at(frame));
     }
 
-    void add_observation(Frame *frame, size_t keypoint_id);
+    const Eigen::Vector2d &get_observation_normalized(Frame *frame) const {
+        return frame->get_keypoint_normalized(observation_refs.at(frame));
+    }
+
+    Frame *first_frame() const { return observation_refs.begin()->first; }
+    Frame *last_frame() const { return observation_refs.rbegin()->first; }
+
+    void add_observation(Frame *frame, size_t keypoint_index);
     void remove_observation(Frame *, bool suicide_if_empty = true);
 
     bool triangulate();
-
-    size_t m_feature_id_in_sliding_window;
-    /// What camera ID our pose is anchored in!! By default the first measurement is the anchor.  局部帧相机
-    int m_anchor_cam_id = -1;
-
-    /// Timestamp of anchor clone           局部帧时间戳
-    double m_anchor_clone_timestamp;
-
-    /// Triangulated position of this feature, in the anchor frame            局部帧三角化坐标
-    Eigen::Vector3d m_p_FinA;
-
-    /// Triangulated position of this feature, in the global frame            全局标标
-    Eigen::Vector3d m_p_FinG;
-
-    bool m_is_triangulated;
-
-    SlidingWindow *m_sliding_window;
+    size_t index_in_sw;
+    SlidingWindow *sw;
+    Eigen::Vector3d p_in_A;
+    double inv_depth_in_A;
+    Eigen::Vector3d p_in_G;
+    double reprojection_error = 0;
 
 private:
-    std::map<Frame *, size_t> m_observation_map;
+    std::map<Frame *, size_t> observation_refs;
 };

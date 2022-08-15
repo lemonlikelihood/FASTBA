@@ -16,6 +16,8 @@ extern create_if_empty_t create_if_empty;
 
 enum class FrameFlag {
     FF_KEYFRAME = 0,
+    FF_FIX_POSE,
+    FF_HAVE_IMU,
     FF_HAVE_ATTI, // attitude
     // FF_HAVE_GYR,  // gyroscope
     // FF_HAVE_GRA,  // gravity
@@ -32,27 +34,30 @@ public:
     Eigen::Vector2d remove_k(const Eigen::Vector2d &p);
     Eigen::Vector2d apply_k(const Eigen::Vector2d &p);
 
-    size_t keypoint_num() const { return m_keypoints.size(); }
+    std::unique_ptr<Frame> clone() const;
 
-    const Eigen::Vector2d &get_keypoint(size_t keypoint_id) const {
-        return m_keypoints[keypoint_id];
-    }
+    size_t keypoint_num() const { return keypoints.size(); }
+
+    const Eigen::Vector2d &get_keypoint(size_t keypoint_id) const { return keypoints[keypoint_id]; }
 
     void append_keypoint(const Eigen::Vector2d &keypoint);
 
     const Eigen::Vector2d &get_keypoint_normalized(size_t keypoint_id) const {
-        return m_keypoints_normalized[keypoint_id];
+        return keypoints_normalized[keypoint_id];
     }
 
-    Feature *get_feature(size_t keypoint_id) const { return m_features[keypoint_id]; }
+    Feature *get_feature(size_t keypoint_id) const { return features[keypoint_id]; }
 
     Feature *get_feature_if_empty_create(size_t keypoint_id);
 
-    Factor *get_preintegration_factor() { return m_preintegration_factor.get(); }
+    Factor *get_preintegration_factor() { return preintegration_factor.get(); }
 
     Factor *get_reprojection_factor(size_t keypoint_index) {
-        return m_reprojection_factors[keypoint_index].get();
+        return reprojection_factors[keypoint_index].get();
     }
+
+    void detect_keypoints();
+    void track_keypoints(Frame *next_frame);
 
     Pose get_camera_pose() const;
     Pose get_imu_pose() const;
@@ -61,34 +66,31 @@ public:
     void set_camera_pose(const Pose &pose);
     void set_imu_pose(const Pose &pose);
 
-    int m_index_in_map;
-    double m_timestamp;
-    std::string m_camera_model;
-    std::string m_image_name;
-    int m_camera_id;
+    int index_in_map;
+    //    std::string m_camera_model;
+    //    std::string m_image_name;
+    //    int m_camera_id;
 
-    Eigen::Matrix3d m_K;
-    Eigen::Matrix2d m_sqrt_inv_cov;
-    std::shared_ptr<ImageData> m_image;
+    Eigen::Matrix3d K;
+    Eigen::Matrix2d sqrt_inv_cov;
+    std::shared_ptr<Image> image;
 
-    std::vector<Eigen::Vector2d, Eigen::aligned_allocator<Eigen::Vector2d>> m_keypoints;
-    std::vector<Eigen::Vector2d, Eigen::aligned_allocator<Eigen::Vector2d>> m_keypoints_normalized;
+    Pose pose; // pose_{world_center}
+    Pose gt_pose;
 
-    std::vector<Feature *> m_features;
-
-    Pose m_pose_body2world; // pose_{world_center}
-    bool m_fix_pose;
-
-    ExtrinsicParams m_camera_extri;
-    ExtrinsicParams m_imu_extri;
+    ExtrinsicParams camera_extri;
+    ExtrinsicParams imu_extri;
     MotionState motion;
 
-    PreIntegrator m_preintegration;
+    PreIntegrator preintegration;
 
-    SlidingWindow *m_sliding_window;
+    SlidingWindow *sw;
+    Map *map;
 
-    Map *m_map;
-
-    std::vector<std::unique_ptr<Factor>> m_reprojection_factors;
-    std::unique_ptr<Factor> m_preintegration_factor;
+private:
+    std::vector<std::unique_ptr<Factor>> reprojection_factors;
+    std::unique_ptr<Factor> preintegration_factor;
+    std::vector<Eigen::Vector2d, Eigen::aligned_allocator<Eigen::Vector2d>> keypoints;
+    std::vector<Eigen::Vector2d, Eigen::aligned_allocator<Eigen::Vector2d>> keypoints_normalized;
+    std::vector<Feature *> features;
 };

@@ -59,8 +59,8 @@ struct VelocityData {
 };
 
 struct ExtrinsicParams {
-    Eigen::Quaterniond q_sensor2body = Eigen::Quaterniond::Identity();
-    Eigen::Vector3d p_sensor2body = Eigen::Vector3d::Zero();
+    Eigen::Quaterniond q = Eigen::Quaterniond::Identity();
+    Eigen::Vector3d p = Eigen::Vector3d::Zero();
 };
 
 struct MotionState {
@@ -80,12 +80,24 @@ struct CameraCsvData {
     std::string filename;
 };
 
-struct ImageData {
+struct Image {
     double t = -1.0;
     cv::Mat image;
 
-    ImageData() = default;
-    ImageData(const double &t, const std::string &filename) {
+    virtual ~Image() = default;
+
+    virtual void detect_keypoints(
+        std::vector<Eigen::Vector2d> &keypoints, size_t max_points = 0,
+        double keypoint_distance = 0.5) const = 0;
+    virtual void track_keypoints(
+        const Image *next_image, const std::vector<Eigen::Vector2d> &curr_keypoints,
+        std::vector<Eigen::Vector2d> &next_keypoints, std::vector<char> &result_status) const = 0;
+    // virtual void detect_segments(
+    //     std::vector<std::tuple<Eigen::Vector2d, Eigen::Vector2d>> &segments,
+    //     size_t max_segments = 0) const = 0;
+
+    Image() = default;
+    Image(const double &t, const std::string &filename) {
         // std::cout << "image filename: " << filename << std::endl;
         this->t = t;
         image = cv::imread(filename, cv::IMREAD_GRAYSCALE);
@@ -96,7 +108,7 @@ struct CameraCsv {
 
     std::deque<CameraCsvData> items;
 
-    void load(const std::string &filename) {
+    void load(const std::string &filename, bool is_ns = false) {
         items.clear();
         if (FILE *csv = fopen(filename.c_str(), "r")) {
             fscanf(csv, "%*[^\r\n]");
@@ -106,6 +118,9 @@ struct CameraCsv {
                 memset(filename_buffer, 0, 2048);
                 if (fscanf(csv, "%lf,%2047[^\r\n]%*[\r\n]", &item.t, filename_buffer) != 2) {
                     break;
+                }
+                if (is_ns) {
+                    item.t = item.t * 1.0e-9;
                 }
                 item.filename = std::string(filename_buffer);
                 items.emplace_back(std::move(item));
@@ -129,7 +144,7 @@ struct CameraCsv {
 
 struct ImuCsv {
     std::deque<IMUData> items;
-    void load(const std::string &filename) {
+    void load(const std::string &filename, bool is_ns = false) {
         items.clear();
         if (FILE *csv = fopen(filename.c_str(), "r")) {
             fscanf(csv, "%*[^\r\n]");
@@ -139,6 +154,9 @@ struct ImuCsv {
                           csv, "%lf,%lf,%lf,%lf,%lf,%lf,%lf%*[\r\n]", &item.t, &item.w.x(),
                           &item.w.y(), &item.w.z(), &item.a.x(), &item.a.y(), &item.a.z())
                           == 7) {
+                if (is_ns) {
+                    item.t = item.t * 1.0e-9;
+                }
                 items.emplace_back(std::move(item));
             }
             fclose(csv);
@@ -211,7 +229,7 @@ struct EurocPoseCsv {
             Pose item;
             while (not feof(csv)
                    && fscanf(
-                          csv, "%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf%*[\r\n]", &item.t, &item.p.x(),
+                          csv, "%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf%*[^\r\n]", &item.t, &item.p.x(),
                           &item.p.y(), &item.p.z(), &item.q.w(), &item.q.x(), &item.q.y(),
                           &item.q.z())
                           == 8) {

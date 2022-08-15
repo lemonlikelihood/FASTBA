@@ -5,18 +5,28 @@
 Feature::Feature() = default;
 Feature::~Feature() = default;
 
-void Feature::add_observation(Frame *frame, size_t keypoint_id) {
-    frame->m_features[keypoint_id] = this;
-    m_observation_map[frame] = keypoint_id;
+void Feature::add_observation(Frame *frame, size_t keypoint_index) {
+    frame->features[keypoint_index] = this;
+    frame->reprojection_factors[keypoint_index] =
+        Factor::create_reprojection_error(frame, keypoint_index);
+    observation_refs[frame] = keypoint_index;
 }
 
 void Feature::remove_observation(Frame *frame, bool suicide_if_empty) {
-    size_t keypoint_id = m_observation_map.at(frame);
-    frame->m_features[keypoint_id] = nullptr;
-    frame->m_reprojection_factors[keypoint_id].reset();
-    m_observation_map.erase(frame);
-    if (suicide_if_empty && m_observation_map.size() == 0) {
-        m_sliding_window->recycle_feature(this);
+    size_t keypoint_index = observation_refs.at(frame);
+    if (observation_refs.size() > 1) {
+        if (frame == first_frame()) {
+            // todo
+        }
+    } else {
+        flag(FeatureFlag::FF_VALID) = false;
+    }
+
+    frame->features[keypoint_index] = nullptr;
+    frame->reprojection_factors[keypoint_index].reset();
+    observation_refs.erase(frame);
+    if (suicide_if_empty && observation_refs.size() == 0) {
+        sw->recycle_feature(this);
     }
 }
 
@@ -28,7 +38,7 @@ bool Feature::triangulate() {
         Eigen::Matrix3d R;
         Eigen::Vector3d t;
         Pose pose = it.first->get_camera_pose();
-        R = pose.q.toRotationMatrix();
+        R = pose.q.conjugate().toRotationMatrix();
         t = -(R * pose.p);
         P << R, t;
         Ps.push_back(P);
@@ -37,11 +47,11 @@ bool Feature::triangulate() {
 
     Eigen::Vector3d p;
     if (triangulate_point_checked(Ps, ps, p)) {
-        m_p_FinG = p;
-        m_is_triangulated = true;
+        p_in_G = p;
+        flag(FeatureFlag::FF_VALID) = true;
     } else {
-        m_is_triangulated = false;
+        flag(FeatureFlag::FF_VALID) = false;
     }
-
-    return m_is_triangulated;
+    flag(FeatureFlag::FF_TRIANGULATED) = true;
+    return flag(FeatureFlag::FF_VALID);
 }

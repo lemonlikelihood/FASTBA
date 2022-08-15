@@ -1,10 +1,10 @@
 #pragma once
 
+#include "../../geometry/lie_algebra.h"
 #include "../../map/feature.h"
 #include "../../map/frame.h"
 #include "../../utils/common.h"
 #include "../factor.h"
-#include "../lie_algebra.h"
 #include <ceres/ceres.h>
 
 class ReprojectionErrorCost : public Factor::FactorCostFunction,
@@ -20,13 +20,12 @@ public:
         Eigen::Map<const Eigen::Vector3d> x(parameters[2]);
 
         const Eigen::Vector2d &z = frame->get_keypoint_normalized(keypoint_id);
-        const ExtrinsicParams &camera = frame->m_camera_extri;
-        const Eigen::Matrix2d &sqrt_inv_cov = frame->m_sqrt_inv_cov;
+        const ExtrinsicParams &camera = frame->camera_extri;
+        const Eigen::Matrix2d &sqrt_inv_cov = frame->sqrt_inv_cov;
 
         //Eigen::Vector3d y = camera.q_cs.conjugate() * q_center.conjugate() * (x - p_center) - camera.q_cs.conjugate() * camera.p_cs;
         Eigen::Vector3d y_center = q_center.conjugate() * (x - p_center);
-        Eigen::Vector3d y = camera.q_sensor2body.conjugate() * y_center
-                            - camera.q_sensor2body.conjugate() * camera.p_sensor2body;
+        Eigen::Vector3d y = camera.q.conjugate() * y_center - camera.q.conjugate() * camera.p;
         Eigen::Map<Eigen::Vector2d> r(residuals);
         r = y.hnormalized() - z;
 
@@ -36,19 +35,18 @@ public:
                 -y.y() / (y.z() * y.z());
             if (jacobians[0]) {
                 Eigen::Map<Eigen::Matrix<double, 2, 4, Eigen::RowMajor>> dr_dq(jacobians[0]);
-                dr_dq.block<2, 3>(0, 0) =
-                    dr_dy * camera.q_sensor2body.conjugate().matrix() * hat(y_center);
+                dr_dq.block<2, 3>(0, 0) = dr_dy * camera.q.conjugate().matrix() * hat(y_center);
                 dr_dq.col(3).setZero();
                 dr_dq = sqrt_inv_cov * dr_dq;
             }
             if (jacobians[1]) {
                 Eigen::Map<Eigen::Matrix<double, 2, 3, Eigen::RowMajor>> dr_dp(jacobians[1]);
-                dr_dp = -dr_dy * (q_center * camera.q_sensor2body).conjugate().matrix();
+                dr_dp = -dr_dy * (q_center * camera.q).conjugate().matrix();
                 dr_dp = sqrt_inv_cov * dr_dp;
             }
             if (jacobians[2]) {
                 Eigen::Map<Eigen::Matrix<double, 2, 3, Eigen::RowMajor>> dr_dx(jacobians[2]);
-                dr_dx = dr_dy * (q_center * camera.q_sensor2body).conjugate().matrix();
+                dr_dx = dr_dy * (q_center * camera.q).conjugate().matrix();
                 dr_dx = sqrt_inv_cov * dr_dx;
             }
         }
@@ -66,7 +64,7 @@ private:
 class PoseOnlyReprojectionErrorCost : public ceres::SizedCostFunction<2, 4, 3> {
 public:
     PoseOnlyReprojectionErrorCost(const Frame *frame, size_t keypoint_id)
-        : error(frame, keypoint_id), x(frame->get_feature(keypoint_id)->m_p_FinG) {}
+        : error(frame, keypoint_id), x(frame->get_feature(keypoint_id)->p_in_G) {}
 
     bool Evaluate(
         const double *const *parameters, double *residuals, double **jacobians) const override {

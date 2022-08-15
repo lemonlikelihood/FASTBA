@@ -17,8 +17,8 @@
 **************************************************************************/
 #include "preintegrator.h"
 #include "../../dataset/dataset.h"
-#include "lie_algebra.h"
 #include "../map/frame.h"
+#include "../geometry/lie_algebra.h"
 
 void PreIntegrator::reset() {
     delta.t = 0;
@@ -112,9 +112,9 @@ void PreIntegrator::predict(const Frame *old_frame, Frame *new_frame) {
     new_frame->motion.bg = old_frame->motion.bg;
     new_frame->motion.ba = old_frame->motion.ba;
     new_frame->motion.v =
-        old_frame->motion.v + gravity * delta.t + old_frame->m_pose_body2world.q * delta.v;
-    new_frame->m_pose_body2world.p =
-        old_frame->m_pose_body2world.p + 0.5 * gravity * delta.t * delta.t
-        + old_frame->motion.v * delta.t + old_frame->m_pose_body2world.q * delta.p;
-    new_frame->m_pose_body2world.q = old_frame->m_pose_body2world.q * delta.q;
+            old_frame->motion.v + gravity * delta.t + old_frame->pose.q * delta.v;
+    new_frame->pose.p =
+            old_frame->pose.p + 0.5 * gravity * delta.t * delta.t
+            + old_frame->motion.v * delta.t + old_frame->pose.q * delta.p;
+    new_frame->pose.q = old_frame->pose.q * delta.q;
 }

@@ -65,7 +65,7 @@ size_t triangulate_from_rt_scored(
     const std::vector<Eigen::Vector2d> &points1, const std::vector<Eigen::Vector2d> &points2,
     const std::vector<Eigen::Matrix3d> &Rs, const std::vector<Eigen::Vector3d> &Ts,
     size_t count_threshold, std::vector<Eigen::Vector3d> &result_points, Eigen::Matrix3d &result_R,
-    Eigen::Vector3d &result_T, std::vector<char> &result_status);
+    Eigen::Vector3d &result_T, std::vector<char> &result_status, double &score);
 
 size_t triangulate_from_essential(
     const std::vector<Eigen::Vector2d> &points1, const std::vector<Eigen::Vector2d> &points2,

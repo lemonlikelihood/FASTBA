@@ -1,10 +1,10 @@
 #pragma once
 
+#include "../../geometry/lie_algebra.h"
 #include "../../map/feature.h"
 #include "../../map/frame.h"
 #include "../../utils/common.h"
 #include "../factor.h"
-#include "../lie_algebra.h"
 #include "../preintegrator.h"
 #include <ceres/ceres.h>
 
@@ -30,8 +30,8 @@ public:
         Eigen::Map<const Eigen::Vector3d> ba_j(parameters[9]);
 
         // const PreIntegrator &pre = frame_j->m_preintegration;
-        const ExtrinsicParams &imu_i = frame_i->m_imu_extri;
-        const ExtrinsicParams &imu_j = frame_j->m_imu_extri;
+        const ExtrinsicParams &imu_i = frame_i->imu_extri;
+        const ExtrinsicParams &imu_j = frame_j->imu_extri;
         // const Eigen::Vector3d &ba_i_0 = frame_i->motion.ba;
         // const Eigen::Vector3d &bg_i_0 = frame_i->motion.bg;
 
@@ -40,7 +40,7 @@ public:
         // const Eigen::Quaterniond q_j = q_center_j * imu_j.q_sensor2body;
         // const Eigen::Vector3d p_j = p_center_j + q_center_j * imu_j.p_sensor2body;
 
-        const PreIntegrator &pre = frame_j->m_preintegration;
+        const PreIntegrator &pre = frame_j->preintegration;
         // const ExtrinsicParams &imu_i = frame_i->imu;
         // const ExtrinsicParams &imu_j = frame_j->imu;
         const Eigen::Vector3d &ba_i_0 = frame_i->motion.ba;
@@ -83,12 +83,12 @@ public:
                 dr_dq_i.block<3, 3>(ES_Q, 0) = -right_jacobian(r.segment<3>(ES_Q)).inverse()
                                                * q_j.conjugate().matrix() * q_center_i.matrix();
                 dr_dq_i.block<3, 3>(ES_P, 0) =
-                    imu_i.q_sensor2body.conjugate().matrix()
+                    imu_i.q.conjugate().matrix()
                     * hat(
                         q_center_i.conjugate()
                         * (p_j - p_center_i - dt * v_i - 0.5 * dt * dt * gravity));
                 dr_dq_i.block<3, 3>(ES_V, 0) =
-                    imu_i.q_sensor2body.conjugate().matrix()
+                    imu_i.q.conjugate().matrix()
                     * hat(q_center_i.conjugate() * (v_j - v_i - dt * gravity));
                 dr_dq_i = pre.delta.sqrt_inv_cov * dr_dq_i;
             }
@@ -128,9 +128,9 @@ public:
                 Eigen::Map<Eigen::Matrix<double, 15, 4, Eigen::RowMajor>> dr_dq_j(jacobians[5]);
                 dr_dq_j.setZero();
                 dr_dq_j.block<3, 3>(ES_Q, 0) = right_jacobian(r.segment<3>(ES_Q)).inverse()
-                                               * imu_j.q_sensor2body.conjugate().matrix();
+                                               * imu_j.q.conjugate().matrix();
                 dr_dq_j.block<3, 3>(ES_P, 0) =
-                    -q_i.conjugate().matrix() * q_center_j.matrix() * hat(imu_j.p_sensor2body);
+                    -q_i.conjugate().matrix() * q_center_j.matrix() * hat(imu_j.p);
                 dr_dq_j = pre.delta.sqrt_inv_cov * dr_dq_j;
             }
             if (jacobians[6]) {
@@ -177,8 +177,8 @@ public:
     bool Evaluate(
         const double *const *parameters, double *residuals, double **jacobians) const override {
         std::array<const double *, 10> params = {
-            frame_i->m_pose_body2world.q.coeffs().data(),
-            frame_i->m_pose_body2world.p.data(),
+            frame_i->pose.q.coeffs().data(),
+            frame_i->pose.p.data(),
             frame_i->motion.v.data(),
             frame_i->motion.bg.data(),
             frame_i->motion.ba.data(),

@@ -95,7 +95,7 @@ void KLTTracker::detect_keypoints(
 
 bool KLTTracker::track_monocular(Frame *frame) {
     // 1. 对收到的图片已经去畸变和直方图均衡化
-    cv::Mat &img = frame->m_image->image;
+    cv::Mat &img = frame->image->image;
 
     // 2. 对均衡化后的图像提取金字塔（按传入的窗口大小和金字塔层数来提取）
     std::vector<cv::Mat> imgpyr;
@@ -105,7 +105,6 @@ bool KLTTracker::track_monocular(Frame *frame) {
         detect_keypoints(imgpyr, m_pts_last);
         m_img_pyramid_last = imgpyr;
         m_last_frame = frame;
-        log_debug("sucess");
         return true;
     }
 
@@ -113,14 +112,14 @@ bool KLTTracker::track_monocular(Frame *frame) {
         m_img_pyramid_last, m_pts_last); // m_pts_last 先对上一帧图像提取新的特征点，再跟踪
     // Our return success masks, and predicted new features
 
-    m_last_frame->m_features.resize(m_pts_last.size(), nullptr);
-    m_last_frame->m_keypoints.resize(m_pts_last.size());
-    m_last_frame->m_keypoints_normalized.resize(m_pts_last.size());
-    m_last_frame->m_reprojection_factors.resize(m_pts_last.size());
+    m_last_frame->features.resize(m_pts_last.size(), nullptr);
+    m_last_frame->keypoints.resize(m_pts_last.size());
+    m_last_frame->keypoints_normalized.resize(m_pts_last.size());
+    m_last_frame->reprojection_factors.resize(m_pts_last.size());
     for (int i = 0; i < m_pts_last.size(); i++) {
         Eigen::Vector2d keypoint {m_pts_last[i].pt.x, m_pts_last[i].pt.y};
-        m_last_frame->m_keypoints[i] = keypoint;
-        m_last_frame->m_keypoints_normalized[i] = m_last_frame->remove_k(keypoint);
+        m_last_frame->keypoints[i] = keypoint;
+        m_last_frame->keypoints_normalized[i] = m_last_frame->remove_k(keypoint);
     }
 
     std::vector<uchar> mask_ll;
@@ -132,9 +131,6 @@ bool KLTTracker::track_monocular(Frame *frame) {
         mask_ll); // mask_ll 表明track是否成功
 
     log_info("track success");
-
-    //===================================================================================
-    //===================================================================================
 
     // If any of our mask is empty, that means we didn't have enough to do ransac, so just return
     if (mask_ll.empty()) {
@@ -154,17 +150,98 @@ bool KLTTracker::track_monocular(Frame *frame) {
             continue;
         // If it is a good track, and also tracked from left to right
         if (mask_ll[i]) {
-            size_t next_keypoint_id = frame->m_keypoints.size();
+            size_t next_keypoint_id = frame->keypoints.size();
             good_tracked_keypoints.push_back(pts_left_new[i]);
             Eigen::Vector2d keypoint {pts_left_new[i].pt.x, pts_left_new[i].pt.y};
-            frame->m_keypoints.emplace_back(keypoint);
-            frame->m_keypoints_normalized.emplace_back(frame->remove_k(keypoint));
-            frame->m_features.emplace_back(nullptr);
-            frame->m_reprojection_factors.emplace_back(nullptr);
-            log_info("add feature");
+            frame->keypoints.emplace_back(keypoint);
+            frame->keypoints_normalized.emplace_back(frame->remove_k(keypoint));
+            frame->features.emplace_back(nullptr);
+            frame->reprojection_factors.emplace_back(nullptr);
             m_last_frame->get_feature_if_empty_create(i)->add_observation(frame, next_keypoint_id);
-            log_info("add feature success");
         }
+    }
+    auto frame_i = m_last_frame;
+    auto frame_j = frame;
+    const int32_t rows = frame_i->image->image.rows;
+    const int32_t cols = frame_i->image->image.cols;
+    cv::Mat img1 = frame_i->image->image;
+    cv::Mat img2 = frame_j->image->image;
+    cv::Mat combined(rows * 2, cols, CV_8UC1);
+    img1.copyTo(combined.rowRange(0, rows));
+    img2.copyTo(combined.rowRange(rows, rows * 2));
+    cv::cvtColor(combined, combined, cv::COLOR_GRAY2RGBA);
+
+    std::vector<Eigen::Vector2d> frame_i_keypoints;
+    std::vector<Eigen::Vector2d> frame_j_keypoints;
+
+    frame_i_keypoints.clear();
+    frame_j_keypoints.clear();
+
+    for (size_t ki = 0; ki < frame_i->keypoint_num(); ++ki) {
+        Feature *feature = frame_i->get_feature(ki);
+        if (!feature)
+            continue;
+        size_t kj = feature->get_observation_index(frame_j);
+        if (kj == nil())
+            continue;
+        frame_i_keypoints.push_back(frame_i->get_keypoint_normalized(ki));
+        frame_j_keypoints.push_back(frame_j->get_keypoint_normalized(kj));
+    }
+
+    for (int i = 0; i < frame_i_keypoints.size(); i++) {
+        Eigen::Vector2d pi = frame_i->apply_k(frame_i_keypoints[i]);
+        cv::Point2d cv_pi = {pi.x(), pi.y()};
+        cv::circle(combined, cv_pi, 5, cv::Scalar(255, 0, 0));
+        Eigen::Vector2d pj = frame_j->apply_k(frame_j_keypoints[i]);
+        cv::Point2d cv_pj = {pj.x(), pj.y()};
+        log_info("i: {}, pi: {}, pj: {}", i, pi.transpose(), pj.transpose());
+        cv::circle(combined, cv_pj + cv::Point2d(0, rows), 5, cv::Scalar(0, 255, 0));
+        cv::line(combined, cv_pi, cv_pj + cv::Point2d(0, rows), cv::Scalar(0, 0, 255));
+    }
+    cv::imshow("track combined", combined);
+    // cv::waitKey(0);
+
+    if (true) {
+        auto frame_i = frame->sw->get_frame(0);
+        auto frame_j = frame;
+        const int32_t rows = frame_i->image->image.rows;
+        const int32_t cols = frame_i->image->image.cols;
+        cv::Mat img1 = frame_i->image->image;
+        cv::Mat img2 = frame_j->image->image;
+        cv::Mat combined(rows * 2, cols, CV_8UC1);
+        img1.copyTo(combined.rowRange(0, rows));
+        img2.copyTo(combined.rowRange(rows, rows * 2));
+        cv::cvtColor(combined, combined, cv::COLOR_GRAY2RGBA);
+
+        std::vector<Eigen::Vector2d> frame_i_keypoints;
+        std::vector<Eigen::Vector2d> frame_j_keypoints;
+
+        frame_i_keypoints.clear();
+        frame_j_keypoints.clear();
+
+        for (size_t ki = 0; ki < frame_i->keypoint_num(); ++ki) {
+            Feature *feature = frame_i->get_feature(ki);
+            if (!feature)
+                continue;
+            size_t kj = feature->get_observation_index(frame_j);
+            if (kj == nil())
+                continue;
+            frame_i_keypoints.push_back(frame_i->get_keypoint_normalized(ki));
+            frame_j_keypoints.push_back(frame_j->get_keypoint_normalized(kj));
+        }
+
+        for (int i = 0; i < frame_i_keypoints.size(); i++) {
+            Eigen::Vector2d pi = frame_i->apply_k(frame_i_keypoints[i]);
+            cv::Point2d cv_pi = {pi.x(), pi.y()};
+            cv::circle(combined, cv_pi, 5, cv::Scalar(255, 0, 0));
+            Eigen::Vector2d pj = frame_j->apply_k(frame_j_keypoints[i]);
+            cv::Point2d cv_pj = {pj.x(), pj.y()};
+            log_info("i: {}, pi: {}, pj: {}", i, pi.transpose(), pj.transpose());
+            cv::circle(combined, cv_pj + cv::Point2d(0, rows), 5, cv::Scalar(0, 255, 0));
+            cv::line(combined, cv_pi, cv_pj + cv::Point2d(0, rows), cv::Scalar(0, 0, 255));
+        }
+        cv::imshow("track init combined", combined);
+        // cv::waitKey(0);
     }
 
     m_img_pyramid_last = imgpyr;

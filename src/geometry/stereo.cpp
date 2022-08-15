@@ -153,7 +153,7 @@ size_t triangulate_from_rt_scored(
     const std::vector<Vector2d> &points1, const std::vector<Vector2d> &points2,
     const std::vector<Matrix3d> &Rs, const std::vector<Vector3d> &Ts, size_t count_threshold,
     std::vector<Vector3d> &result_points, Matrix3d &result_R, Vector3d &result_T,
-    std::vector<char> &result_status) {
+    std::vector<char> &result_status, double &result_score) {
     std::vector<std::vector<Vector3d>> points(Rs.size());
     std::vector<std::vector<char>> status(Rs.size());
     std::vector<size_t> counts(Rs.size());
@@ -172,6 +172,7 @@ size_t triangulate_from_rt_scored(
 
     result_R = Rs[best_i];
     result_T = Ts[best_i];
+    result_score = scores[best_i];
     result_points.swap(points[best_i]); // 成功三角化的3D点
     result_status.swap(status[best_i]); // 成功三角化的3D点标志位
 
