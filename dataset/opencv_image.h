@@ -1,8 +1,6 @@
-
 #pragma once
 
 #include "dataset.h"
-#include <opencv2/line_descriptor/descriptor.hpp>
 #include <opencv2/opencv.hpp>
 #include <string>
 
@@ -26,7 +24,7 @@ public:
 
 private:
     static cv::CLAHE *clahe();
-    static cv::line_descriptor::LSDDetector *lsd();
+    // static cv::line_descriptor::LSDDetector *lsd();
     static cv::GFTTDetector *gftt();
     static cv::FastFeatureDetector *fast();
     static cv::ORB *orb();

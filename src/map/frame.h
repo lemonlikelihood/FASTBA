@@ -31,6 +31,9 @@ class Frame : public Flagged<FrameFlag>, public Identifiable<Frame> {
     friend class SlidingWindow;
 
 public:
+    Frame();
+    Frame(size_t id);
+    ~Frame();
     Eigen::Vector2d remove_k(const Eigen::Vector2d &p);
     Eigen::Vector2d apply_k(const Eigen::Vector2d &p);
 

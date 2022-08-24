@@ -22,6 +22,27 @@ option(PROJECTION_BUILD_LOGGING "Should be off for release. Log code won't be co
 message(STATUS "PROJECTION_BUILD_LOGGING: ${PROJECTION_BUILD_LOGGING}")
 # 3rdparty libraries
 
+## lyra
+FetchContent_Declare(
+    lyra
+    URL https://github.com/bfgroup/Lyra/archive/refs/tags/1.6.tar.gz
+    URL_HASH MD5=08b7b28aacb0bf07f28dbd5d0858c6ea
+    DOWNLOAD_NAME lyra-1.6.tar.gz
+    DOWNLOAD_DIR ${THIRDPARTY_SOURCE_DIR}
+    # SOURCE_DIR ${THIRDPARTY_SOURCE_DIR}/lyra-src
+)
+FetchContent_GetProperties(lyra)
+if(NOT lyra_POPULATED)
+    FetchContent_Populate(lyra)
+endif()
+add_subdirectory(${lyra_SOURCE_DIR} ${lyra_BINARY_DIR})
+add_library(depends::lyra INTERFACE IMPORTED GLOBAL)
+target_link_libraries(depends::lyra INTERFACE bfg::lyra)
+set(lyra-source-dir ${lyra_SOURCE_DIR} CACHE INTERNAL "" FORCE)
+set(lyra-binary-dir ${lyra_BINARY_DIR} CACHE INTERNAL "" FORCE)
+mark_as_advanced(lyra-source-dir)
+mark_as_advanced(lyra-binary-dir)
+
 ## yaml-cpp
 FetchContent_Declare(
     yaml-cpp
@@ -151,6 +172,7 @@ mark_as_advanced(eigen-binary-dir)
 find_package(OpenCV 4 REQUIRED)
 add_library(depends::opencv INTERFACE IMPORTED GLOBAL)
 target_link_libraries(depends::opencv INTERFACE ${OpenCV_LIBS})
+message(STATUS "opencv include path: ${OpenCV_INCLUDE_DIRS}" )
 
 # # ceres-solver
 find_package(Ceres REQUIRED)
@@ -281,9 +303,10 @@ add_executable(run_euroc
                 src/geometry/essential.cpp
                 src/geometry/homography.cpp
                 src/geometry/lie_algebra.cpp
+                src/utils/euler_angle.cpp
                 )
 
-target_link_libraries(run_euroc PUBLIC dep-dataset depends::spdlog depends::opencv)
+target_link_libraries(run_euroc PUBLIC dep-dataset depends::spdlog depends::opencv depends::lyra)
 
 # add_executable(run_lightvis demo/run_lightvis.cpp)
 # target_link_libraries(run_lightvis PUBLIC dep-dataset dep-lightvis)

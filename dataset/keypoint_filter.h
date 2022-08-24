@@ -12,10 +12,7 @@ public:
         m_y_max = y_max;
         m_radius = radius;
         m_radius_squared = radius * radius;
-        m_grid_size =
-            radius
-            / sqrt(
-                2); // 以grid_size为网格大小的正方形对角线刚好为radius,可以避免一个网格里同时有两个关键点，保证唯一性
+        m_grid_size = radius / sqrt(2);
         m_grid_width = (int)((m_x_max - m_x_min) / m_grid_size) + 1;
         m_grid_height = (int)((m_y_max - m_y_min) / m_grid_size) + 1;
         clear();

@@ -14,13 +14,13 @@ void Feature::add_observation(Frame *frame, size_t keypoint_index) {
 
 void Feature::remove_observation(Frame *frame, bool suicide_if_empty) {
     size_t keypoint_index = observation_refs.at(frame);
-    if (observation_refs.size() > 1) {
-        if (frame == first_frame()) {
-            // todo
-        }
-    } else {
-        flag(FeatureFlag::FF_VALID) = false;
-    }
+    // if (observation_refs.size() > 1) {
+    //     if (frame == first_frame()) {
+    //         // todo
+    //     }
+    // } else {
+    //     flag(FeatureFlag::FF_VALID) = false;
+    // }
 
     frame->features[keypoint_index] = nullptr;
     frame->reprojection_factors[keypoint_index].reset();
@@ -42,12 +42,14 @@ bool Feature::triangulate() {
         t = -(R * pose.p);
         P << R, t;
         Ps.push_back(P);
-        ps.push_back(it.first->get_keypoint(it.second));
+        ps.push_back(it.first->get_keypoint_normalized(it.second));
     }
 
     Eigen::Vector3d p;
-    if (triangulate_point_checked(Ps, ps, p)) {
+    double score = 0;
+    if (triangulate_point_scored(Ps, ps, p, score)) {
         p_in_G = p;
+        log_info("index_in_sw: {}, score: {}", index_in_sw, score);
         flag(FeatureFlag::FF_VALID) = true;
     } else {
         flag(FeatureFlag::FF_VALID) = false;

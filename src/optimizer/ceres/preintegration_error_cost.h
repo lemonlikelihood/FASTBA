@@ -16,7 +16,7 @@ public:
 
     bool Evaluate(
         const double *const *parameters, double *residuals, double **jacobians) const override {
-        static const Eigen::Vector3d gravity = {0.0, 0.0, -9.8};
+        static const Eigen::Vector3d gravity = {0.0, 0.0, -9.80665};
         Eigen::Map<const Eigen::Quaterniond> q_center_i(parameters[0]);
         Eigen::Map<const Eigen::Vector3d> p_center_i(parameters[1]);
         Eigen::Map<const Eigen::Vector3d> v_i(parameters[2]);
@@ -29,29 +29,16 @@ public:
         Eigen::Map<const Eigen::Vector3d> bg_j(parameters[8]);
         Eigen::Map<const Eigen::Vector3d> ba_j(parameters[9]);
 
-        // const PreIntegrator &pre = frame_j->m_preintegration;
+        const PreIntegrator &pre = frame_j->preintegration;
         const ExtrinsicParams &imu_i = frame_i->imu_extri;
         const ExtrinsicParams &imu_j = frame_j->imu_extri;
-        // const Eigen::Vector3d &ba_i_0 = frame_i->motion.ba;
-        // const Eigen::Vector3d &bg_i_0 = frame_i->motion.bg;
-
-        // const Eigen::Quaterniond q_i = q_center_i * imu_i.q_sensor2body;
-        // const Eigen::Vector3d p_i = p_center_i + q_center_i * imu_i.p_cs;
-        // const Eigen::Quaterniond q_j = q_center_j * imu_j.q_sensor2body;
-        // const Eigen::Vector3d p_j = p_center_j + q_center_j * imu_j.p_sensor2body;
-
-        const PreIntegrator &pre = frame_j->preintegration;
-        // const ExtrinsicParams &imu_i = frame_i->imu;
-        // const ExtrinsicParams &imu_j = frame_j->imu;
         const Eigen::Vector3d &ba_i_0 = frame_i->motion.ba;
         const Eigen::Vector3d &bg_i_0 = frame_i->motion.bg;
 
-        const Pose imu_pose_i = frame_i->get_imu_pose();
-        const Pose imu_pose_j = frame_j->get_imu_pose();
-        const Eigen::Quaterniond q_i = imu_pose_i.q;
-        const Eigen::Vector3d p_i = imu_pose_i.p;
-        const Eigen::Quaterniond q_j = imu_pose_j.q;
-        const Eigen::Vector3d p_j = imu_pose_j.p;
+        const Eigen::Quaterniond q_i = q_center_i * imu_i.q;
+        const Eigen::Vector3d p_i = p_center_i + q_center_i * imu_i.p;
+        const Eigen::Quaterniond q_j = q_center_j * imu_j.q;
+        const Eigen::Vector3d p_j = p_center_j + q_center_j * imu_j.p;
 
         const double &dt = pre.delta.t;
         const Eigen::Quaterniond &dq = pre.delta.q;
@@ -127,8 +114,8 @@ public:
             if (jacobians[5]) {
                 Eigen::Map<Eigen::Matrix<double, 15, 4, Eigen::RowMajor>> dr_dq_j(jacobians[5]);
                 dr_dq_j.setZero();
-                dr_dq_j.block<3, 3>(ES_Q, 0) = right_jacobian(r.segment<3>(ES_Q)).inverse()
-                                               * imu_j.q.conjugate().matrix();
+                dr_dq_j.block<3, 3>(ES_Q, 0) =
+                    right_jacobian(r.segment<3>(ES_Q)).inverse() * imu_j.q.conjugate().matrix();
                 dr_dq_j.block<3, 3>(ES_P, 0) =
                     -q_i.conjugate().matrix() * q_center_j.matrix() * hat(imu_j.p);
                 dr_dq_j = pre.delta.sqrt_inv_cov * dr_dq_j;

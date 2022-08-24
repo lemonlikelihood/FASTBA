@@ -5,10 +5,12 @@
 #include "../geometry/stereo.h"
 #include "../map/feature.h"
 #include "../map/frame.h"
+#include "../map/sliding_window.h"
 #include "bundle_adjustor.h"
 #include "pnp.h"
 
 #include "../../dataset/dataset.h"
+#include "../utils/euler_angle.h"
 
 
 Initializer::Initializer() {
@@ -17,57 +19,57 @@ Initializer::Initializer() {
 }
 
 void Initializer::append_frame(std::unique_ptr<Frame> frame) {
-    if (sw->frame_num() > 0) {
-        Frame *last_frame = sw->get_last_frame();
-        log_debug("[append_frame()]: last_frame_id: {}", last_frame->id());
-        frame->preintegration.integrate(
-            frame->image->t, last_frame->motion.bg, last_frame->motion.ba, true, false);
-        log_debug("[append_frame()]: integrate success");
-        last_frame->track_keypoints(frame.get());
-        log_debug("[append_frame()]: track_keypoint success");
-    }
-    frame->detect_keypoints();
-    sw->append_frame(std::move(frame));
-    if (sw->frame_num() > 1) {
-        std::vector<Eigen::Vector2d> frame_i_keypoints;
-        std::vector<Eigen::Vector2d> frame_j_keypoints;
+    // if (sw->frame_num() > 0) {
+    //     Frame *last_frame = sw->get_last_frame();
+    //     log_debug("[append_frame()]: last_frame_id: {}", last_frame->id());
+    //     frame->preintegration.integrate(
+    //         frame->image->t, last_frame->motion.bg, last_frame->motion.ba, true, false);
+    //     log_debug("[append_frame()]: integrate success");
+    //     last_frame->track_keypoints(frame.get());
+    //     log_debug("[append_frame()]: track_keypoint success");
+    // }
+    // frame->detect_keypoints();
+    // sw->append_frame(std::move(frame));
+    // if (sw->frame_num() > 1) {
+    //     std::vector<Eigen::Vector2d> frame_i_keypoints;
+    //     std::vector<Eigen::Vector2d> frame_j_keypoints;
 
-        Frame *frame_i = sw->get_second_to_last_frame();
-        Frame *frame_j = sw->get_last_frame();
+    //     Frame *frame_i = sw->get_second_to_last_frame();
+    //     Frame *frame_j = sw->get_last_frame();
 
-        for (size_t ki = 0; ki < frame_i->keypoint_num(); ++ki) {
-            Feature *feature = frame_i->get_feature(ki);
-            if (!feature)
-                continue;
-            size_t kj = feature->get_observation_index(frame_j);
-            if (kj == nil())
-                continue;
-            frame_i_keypoints.push_back(frame_i->get_keypoint_normalized(ki));
-            frame_j_keypoints.push_back(frame_j->get_keypoint_normalized(kj));
-        }
+    //     for (size_t ki = 0; ki < frame_i->keypoint_num(); ++ki) {
+    //         Feature *feature = frame_i->get_feature(ki);
+    //         if (!feature)
+    //             continue;
+    //         size_t kj = feature->get_observation_index(frame_j);
+    //         if (kj == nil())
+    //             continue;
+    //         frame_i_keypoints.push_back(frame_i->get_keypoint_normalized(ki));
+    //         frame_j_keypoints.push_back(frame_j->get_keypoint_normalized(kj));
+    //     }
 
-        const int32_t rows = frame_i->image->image.rows;
-        const int32_t cols = frame_i->image->image.cols;
-        cv::Mat img1 = frame_i->image->image;
-        cv::Mat img2 = frame_j->image->image;
-        cv::Mat combined(rows * 2, cols, CV_8UC1);
-        img1.copyTo(combined.rowRange(0, rows));
-        img2.copyTo(combined.rowRange(rows, rows * 2));
-        cv::cvtColor(combined, combined, cv::COLOR_GRAY2RGBA);
-        for (int i = 0; i < frame_i_keypoints.size(); i++) {
-            Eigen::Vector2d pi = frame_i->apply_k(frame_i_keypoints[i]);
-            cv::Point2d cv_pi = {pi.x(), pi.y()};
-            // std::cout << "pi: " << pi << std::endl;
-            cv::circle(combined, cv_pi, 5, cv::Scalar(255, 0, 0));
-            Eigen::Vector2d pj = frame_j->apply_k(frame_j_keypoints[i]);
-            cv::Point2d cv_pj = {pj.x(), pj.y()};
-            // std::cout << "pj: " << pj << std::endl;
-            cv::circle(combined, cv_pj + cv::Point2d(0, rows), 5, cv::Scalar(0, 255, 0));
-            cv::line(combined, cv_pi, cv_pj + cv::Point2d(0, rows), cv::Scalar(0, 0, 255));
-        }
-        cv::imshow("continue optical flow", combined);
-        cv::waitKey(0);
-    }
+    //     const int32_t rows = frame_i->image->image.rows;
+    //     const int32_t cols = frame_i->image->image.cols;
+    //     cv::Mat img1 = frame_i->image->image;
+    //     cv::Mat img2 = frame_j->image->image;
+    //     cv::Mat combined(rows * 2, cols, CV_8UC1);
+    //     img1.copyTo(combined.rowRange(0, rows));
+    //     img2.copyTo(combined.rowRange(rows, rows * 2));
+    //     cv::cvtColor(combined, combined, cv::COLOR_GRAY2RGBA);
+    //     for (int i = 0; i < frame_i_keypoints.size(); i++) {
+    //         Eigen::Vector2d pi = frame_i->apply_k(frame_i_keypoints[i]);
+    //         cv::Point2d cv_pi = {pi.x(), pi.y()};
+    //         // std::cout << "pi: " << pi << std::endl;
+    //         cv::circle(combined, cv_pi, 5, cv::Scalar(255, 0, 0));
+    //         Eigen::Vector2d pj = frame_j->apply_k(frame_j_keypoints[i]);
+    //         cv::Point2d cv_pj = {pj.x(), pj.y()};
+    //         // std::cout << "pj: " << pj << std::endl;
+    //         cv::circle(combined, cv_pj + cv::Point2d(0, rows), 5, cv::Scalar(0, 255, 0));
+    //         cv::line(combined, cv_pi, cv_pj + cv::Point2d(0, rows), cv::Scalar(0, 0, 255));
+    //     }
+    //     cv::imshow("continue optical flow", combined);
+    //     // cv::waitKey(0);
+    // }
 
     // while(raw->frame_num()>30){
     //     m
@@ -205,7 +207,7 @@ bool Initializer::init_sfm() {
         cv::line(combined, cv_pi, cv_pj + cv::Point2d(0, rows), cv::Scalar(0, 0, 255));
     }
     cv::imshow("init pair", combined);
-    cv::waitKey(0);
+    // cv::waitKey(0);
 
     std::vector<size_t> init_keyframe_indices;
     size_t init_map_frames = 8;
@@ -245,7 +247,7 @@ bool Initializer::init_sfm() {
         }
     }
 
-
+    log_info("create new map over");
     Frame *new_init_frame_i = map->get_frame(0);
     Frame *new_init_frame_j = map->get_last_frame();
 
@@ -277,52 +279,6 @@ bool Initializer::init_sfm() {
     }
 
     log_info("[init reprojection error]: {}", init_score);
-    {
-        int cnt_i = 0;
-        for (size_t i = 0; i < new_init_frame_i->keypoint_num(); ++i) {
-            Feature *feature = new_init_frame_i->get_feature(i);
-            if (!feature)
-                continue;
-            if (!feature->flag(FeatureFlag::FF_VALID))
-                continue;
-            const Eigen::Vector3d &x = feature->p_in_G;
-            double quality = 0.0;
-            double quality_num = 0.0;
-            Pose pose_i = new_init_frame_i->get_camera_pose();
-            // log_info("pose_i: {} {}", pose_i.q.coeffs().transpose(), pose_i.p.transpose());
-            Eigen::Vector3d y_i = pose_i.q.conjugate() * (x - pose_i.p);
-            // log_info("yi: {}", y_i.transpose());
-            if (y_i.z() <= 1.0e-3 || y_i.z() > 50) {
-                feature->flag(FeatureFlag::FF_VALID) = false;
-                continue;
-            }
-            quality +=
-                (new_init_frame_i->apply_k(y_i.hnormalized()) - new_init_frame_i->get_keypoint(i))
-                    .norm();
-
-            Pose pose_j = new_init_frame_j->get_camera_pose();
-            // log_info("pose_j: {} {}", pose_j.q.coeffs().transpose(), pose_j.p.transpose());
-            Eigen::Vector3d y_j = pose_j.q.conjugate() * (x - pose_j.p);
-            // log_info("yj: {}", y_j.transpose());
-            if (y_j.z() <= 1.0e-3 || y_j.z() > 50) {
-                feature->flag(FeatureFlag::FF_VALID) = false;
-                continue;
-            }
-            quality += (new_init_frame_j->apply_k(y_j.hnormalized())
-                        - feature->get_observation(new_init_frame_j))
-                           .norm();
-
-            if (!feature->flag(FeatureFlag::FF_VALID))
-                continue;
-            feature->reprojection_error = quality / 2.0;
-            cnt_i++;
-            log_info(
-                "[init reprojection_error]: i: {}, reprojection_error: {}", cnt_i,
-                feature->reprojection_error);
-        }
-    }
-
-    log_debug("init reprojection error over");
     // sw->compute_reprojections();
     // sw->log_feature_reprojections();
 
@@ -366,6 +322,17 @@ bool Initializer::init_sfm() {
         return !feature->flag(FeatureFlag::FF_VALID) || feature->reprojection_error > 1.0;
     });
 
+    log_info("after prune_features");
+    map->log_feature_reprojections();
+
+    int result_point_num = 0;
+    for (size_t i = 0; i < map->feature_num(); ++i) {
+        if (map->get_feature(i)->triangulate()) {
+            result_point_num++;
+        }
+    }
+    log_info("[init sfm] :  all triangulated ");
+    map->compute_reprojections();
     map->log_feature_reprojections();
 
     return true;
@@ -390,14 +357,6 @@ void Initializer::preintegrate() {
         }
         frame_i->preintegration.integrate(frame_i->image->t, bg, ba, true, false);
     }
-}
-
-bool Initializer::init_imu() {
-    reset_states();
-    solve_gyro_bias();
-    log_info("[init imu]: bg: {}", bg.transpose());
-    getchar();
-    return true;
 }
 
 void Initializer::solve_gyro_bias() {
@@ -429,7 +388,7 @@ void Initializer::solve_gyro_bias() {
 
         Eigen::Matrix3d J = dq_dbg;
 
-        A1 += J.transpose() * J;
+        A1 += J.transpose() * J; // A1 和 A2 计算出来的bg没有明显差距
         b1 += J.transpose() * r;
 
         J = dr_dq * dq_dbg;
@@ -462,7 +421,8 @@ void Initializer::solve_gyro_bias() {
         Eigen::Matrix3d dq_dbg = frame_j->preintegration.jacobian.dq_dbg;
 
         Eigen::Quaterniond e1 = (pose_i.q * dq * expmap(dq_dbg * bg1)).conjugate() * pose_j.q;
-        log_info("est bg: {}", bg1.transpose());
+        log_info("est bg1: {}", bg1.transpose());
+        log_info("est bg2: {}", bg2.transpose());
         log_info("error: {},{}", logmap(e1).transpose(), logmap(e1).norm());
         sum_e1 += (logmap(e1)).squaredNorm();
 
@@ -474,7 +434,222 @@ void Initializer::solve_gyro_bias() {
 
     log_debug("sume1: {}", sum_e1);
     log_debug("sume2: {}", sum_e2);
-    getchar();
+    // getchar();
+}
+
+
+void Initializer::solve_gravity_scale_velocity() {
+
+    /*
+                g
+                s
+          A  *  v1  = b
+                v2
+                .
+                .
+                .
+                vn               
+
+      vj - vi - g∆tij = C(qi)∆vij
+      s(pj - pi)-  vi∆tij -0.5 * g∆tij^2 = C(qi)∆pij    
+    */
+    preintegrate();
+    int N = static_cast<int>(map->frame_num());
+    Eigen::MatrixXd A;
+    Eigen::VectorXd b;
+    A.resize((N - 1) * 6, 3 + 1 + 3 * N);
+    b.resize((N - 1) * 6);
+    A.setZero();
+    b.setZero();
+
+    Frame *frame0 = map->get_frame(0);
+    ExtrinsicParams camera_extri = frame0->camera_extri;
+
+    for (int j = 1; j < map->frame_num(); ++j) {
+        size_t i = j - 1;
+        Frame *frame_i = map->get_frame(i);
+        Frame *frame_j = map->get_frame(j);
+
+        Pose pose_i = frame_i->get_camera_pose();
+        Pose pose_j = frame_j->get_camera_pose();
+
+        const PreIntegrator::Delta &delta = frame_j->preintegration.delta;
+
+        A.block<3, 3>(i * 6, 0) = -0.5 * delta.t * delta.t * Eigen::Matrix3d::Identity();
+        A.block<3, 1>(i * 6, 3) = pose_j.p - pose_i.p;
+        A.block<3, 3>(i * 6, 4 + i * 3) = -delta.t * Eigen::Matrix3d::Identity();
+        b.segment<3>(i * 6) = frame_i->pose.q * delta.p + frame_j->pose.q * camera_extri.p
+                              - frame_i->pose.q * camera_extri.p;
+
+        A.block<3, 3>(i * 6 + 3, 0) = -delta.t * Eigen::Matrix3d::Identity();
+        A.block<3, 3>(i * 6 + 3, 4 + i * 3) = -Eigen::Matrix3d::Identity();
+        A.block<3, 3>(i * 6 + 3, 4 + j * 3) = Eigen::Matrix3d::Identity();
+        b.segment<3>(i * 6 + 3) = frame_i->pose.q * delta.v;
+    }
+
+    Eigen::VectorXd x = A.fullPivHouseholderQr().solve(b);
+    gravity = x.segment<3>(0).normalized() * GRAVITY_NORM;
+    scale = x(3);
+    for (size_t i = 0; i < map->frame_num(); ++i) {
+        velocities[i] = x.segment<3>(4 + 3 * i);
+    }
+}
+
+void Initializer::refine_scale_velocity_via_gravity() {
+    /*
+                dg1
+                dg2
+                s
+          A  *  v1  = b
+                v2
+                .
+                .
+                .
+                vn               
+
+      vj - vi - g∆tij = C(qi)∆vij
+      s(pj - pi)-  vi∆tij -0.5 * g∆tij^2 = C(qi)∆pij    
+    */
+
+    static const double damp = 0.1;
+    preintegrate();
+    int N = static_cast<int>(map->frame_num());
+    Eigen::MatrixXd A;
+    Eigen::VectorXd b;
+    Eigen::VectorXd x;
+    A.resize((N - 1) * 6, 2 + 1 + 3 * N);
+    b.resize((N - 1) * 6);
+    x.resize(2 + 1 + 3 * N);
+
+    Frame *frame0 = map->get_frame(0);
+    ExtrinsicParams camera_extri = frame0->camera_extri;
+
+    for (size_t iter = 0; iter < 4; ++iter) {
+        A.setZero();
+        b.setZero();
+        Eigen::Matrix<double, 3, 2> Tg = s2_tangential_basis(gravity);
+        for (int j = 1; j < map->frame_num(); ++j) {
+            size_t i = j - 1;
+            Frame *frame_i = map->get_frame(i);
+            Frame *frame_j = map->get_frame(j);
+
+            Pose pose_i = frame_i->get_camera_pose();
+            Pose pose_j = frame_j->get_camera_pose();
+
+            const PreIntegrator::Delta &delta = frame_j->preintegration.delta;
+
+            A.block<3, 2>(i * 6, 0) = -0.5 * delta.t * delta.t * Tg;
+            A.block<3, 1>(i * 6, 2) = pose_j.p - pose_i.p;
+            A.block<3, 3>(i * 6, 3 + i * 3) = -delta.t * Eigen::Matrix3d::Identity();
+            b.segment<3>(i * 6) = frame_i->pose.q * delta.p + frame_j->pose.q * camera_extri.p
+                                  - frame_i->pose.q * camera_extri.p
+                                  + 0.5 * delta.t * delta.t * gravity;
+
+            A.block<3, 2>(i * 6 + 3, 0) = -delta.t * Tg;
+            A.block<3, 3>(i * 6 + 3, 3 + i * 3) = -Eigen::Matrix3d::Identity();
+            A.block<3, 3>(i * 6 + 3, 3 + j * 3) = Eigen::Matrix3d::Identity();
+            b.segment<3>(i * 6 + 3) = frame_i->pose.q * delta.v + delta.t * gravity;
+        }
+
+        x = A.fullPivHouseholderQr().solve(b);
+        Eigen::Vector2d dg = x.segment<2>(0);
+        gravity = (gravity + damp * Tg * dg).normalized() * GRAVITY_NORM;
+    }
+
+    scale = x(2);
+    for (size_t i = 0; i < map->frame_num(); ++i) {
+        velocities[i] = x.segment<3>(3 + 3 * i);
+    }
+    log_info("[refine]: scale: {}", scale);
+    log_info("[refine]: gravity: {}", gravity.transpose());
+}
+
+
+bool Initializer::apply_init() {
+    log_info("[apply init]: init before");
+    map->compute_reprojections();
+    map->log_feature_reprojections();
+
+    size_t result_point_num = 0;
+    for (size_t i = 0; i < map->feature_num(); ++i) {
+        if (map->get_feature(i)->triangulate()) {
+            result_point_num++;
+        }
+    }
+    log_info("[apply init] :  old triangulated ");
+    map->compute_reprojections();
+    map->log_feature_reprojections();
+
+    const Eigen::Vector3d gravity_world {0, 0, -GRAVITY_NORM};
+    Frame *frame0 = map->get_frame(0);
+    Pose camera_pose0 = frame0->get_camera_pose();
+    ExtrinsicParams camera_extri = frame0->camera_extri;
+
+    Pose imu_pose0;
+    imu_pose0.q = camera_pose0.q * camera_extri.q.conjugate();
+    imu_pose0.p = (scale * camera_pose0.p - imu_pose0.q * camera_extri.p);
+    // Eigen::Vector3d g_in_b0 = frame_world->camera_extri.q * gravity;
+    Eigen::Matrix3d R0 = g2R(gravity);
+    double yaw = R2ypr(R0 * imu_pose0.q).x();
+    R0 = ypr2R(Eigen::Vector3d {-yaw, 0, 0}) * R0;
+    gravity = R0 * gravity;
+    log_info("[apply init]: gravity: {}", gravity.transpose());
+
+    for (size_t i = 0; i < map->frame_num(); ++i) {
+        Frame *frame = map->get_frame(i);
+        Pose camera_pose = frame->get_camera_pose();
+        Pose imu_pose;
+        imu_pose.q = camera_pose.q * camera_extri.q.conjugate();
+        imu_pose.p = (scale * camera_pose.p - imu_pose.q * camera_extri.p) - imu_pose0.p;
+        imu_pose.q = R0 * imu_pose.q;
+        imu_pose.p = R0 * imu_pose.p;
+        frame->set_imu_pose(imu_pose);
+        frame->motion.v = R0 * velocities[i];
+        frame->motion.bg = bg;
+        frame->motion.ba.setZero();
+    }
+
+    // for (size_t i = 0; i < map->feature_num(); ++i) {
+    //     Feature *feature = map->get_feature(i);
+    //     feature->p_in_G = scale * (R0 * feature->p_in_G);
+    // }
+
+    // log_info("[apply init] : set new pose ");
+    // map->compute_reprojections();
+    // map->log_feature_reprojections();
+
+    result_point_num = 0;
+    for (size_t i = 0; i < map->feature_num(); ++i) {
+        if (map->get_feature(i)->triangulate()) {
+            result_point_num++;
+        }
+    }
+    log_info("[apply init] :  new triangulated ");
+    map->compute_reprojections();
+    map->log_feature_reprojections();
+    log_info("[apply init over]");
+    for (size_t i = 0; i < map->frame_num(); ++i) {
+        Frame *frame = map->get_frame(i);
+        log_info("imu pose q: {}", frame->pose.q.coeffs().transpose());
+        log_info("imu pose q ypr: {}", R2ypr(frame->pose.q.toRotationMatrix()).transpose());
+        log_info("imu pose p: {}", frame->pose.p.transpose());
+    }
+    return result_point_num >= 30;
+}
+
+bool Initializer::init_imu() {
+    reset_states();
+    solve_gyro_bias();
+    solve_gravity_scale_velocity();
+    if (scale < 0.001 || scale > 1.0)
+        return false;
+    refine_scale_velocity_via_gravity();
+    if (scale < 0.001 || scale > 1.0)
+        return false;
+    bool result = apply_init();
+    log_info("[init imu]: bg: {}", bg.transpose());
+    log_info("[init imu]: gravity: {}", gravity.transpose());
+    return result;
 }
 
 
@@ -483,9 +658,25 @@ std::unique_ptr<SlidingWindow> Initializer::init() {
         return nullptr;
     if (!init_sfm())
         return nullptr;
+    log_debug("init sfm success");
     if (!init_imu())
         return nullptr;
-    log_debug("init sfm success");
+    log_debug("init imu success");
 
-    return nullptr;
+    map->get_frame(0)->flag(FrameFlag::FF_FIX_POSE) = true;
+    BundleAdjustor().solve(map.get(), true, 50, 1e6);
+
+    log_info("all ba result");
+    map->log_feature_reprojections();
+    Eigen::Vector3d gt_bg = {-0.003172, 0.021267, 0.078502};
+    Eigen::Vector3d gt_ba = {-0.025266, 0.136696, 0.075593};
+    log_info("bg result: {} ", map->get_frame(0)->motion.bg.transpose());
+    log_info("gt bg: {} ", gt_bg.transpose());
+    log_info("ba result: {} ", map->get_frame(0)->motion.ba.transpose());
+    log_info("gt ba: {} ", gt_ba.transpose());
+    log_info("v result: {} ", map->get_frame(0)->motion.v.transpose());
+
+    log_debug("init imu success");
+
+    return std::move(map);
 }

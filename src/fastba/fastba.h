@@ -15,8 +15,9 @@ public:
     void feed_imu(const IMUData &imu);
     void get_imu(Frame *frame);
     void feed_image(std::shared_ptr<Image> image, DatasetConfigurator *dataset_config);
+    void track_frame(SlidingWindow *sw, std::unique_ptr<Frame> frame);
     void feed_gt_camera_pose(const Pose &pose);
-    bool feed_monocular(Frame* frame);
+    bool feed_monocular(Frame *frame);
     std::unique_ptr<Frame>
     create_frame(std::shared_ptr<Image> image, DatasetConfigurator *dataset_config);
 

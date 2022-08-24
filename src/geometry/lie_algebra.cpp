@@ -81,18 +81,21 @@ Eigen::Matrix3d right_jacobian_inv(const Eigen::Vector3d &w) {
     return Eigen::Matrix3d::Identity() + 0.5 * hat_w + third_term * hat_w * hat_w;
 }
 
-// matrix<3, 2> s2_tangential_basis(const Eigen::Vector3d &x) {
-//     int d = 0;
-//     for (int i = 1; i < 3; ++i) {
-//         if (abs(x[i]) > abs(x[d])) d = i;
-//     }
-//     Eigen::Vector3d b1 = x.cross(Eigen::Vector3d::Unit((d + 1) % 3)).normalized();
-//     Eigen::Vector3d b2 = x.cross(b1).normalized();
-//     return (matrix<3, 2>() << b1, b2).finished();
-// }
+Eigen::Matrix<double, 3, 2> s2_tangential_basis(const Eigen::Vector3d &x) {
+    int d = 0;
+    for (int i = 1; i < 3; ++i) {
+        if (abs(x[i]) > abs(x[d]))
+            d = i;
+    }
+    Eigen::Vector3d b1 = x.cross(Eigen::Vector3d::Unit((d + 1) % 3)).normalized();
+    Eigen::Vector3d b2 = x.cross(b1).normalized();
+    return (Eigen::Matrix<double, 3, 2>() << b1, b2).finished();
+}
 
-// matrix<3, 2> s2_tangential_basis_barrel(const Eigen::Vector3d &x) {
-//     Eigen::Vector3d b1 = x.cross(abs(x.z()) < 0.866 ? Eigen::Vector3d::UnitZ() : Eigen::Vector3d::UnitY()).normalized();
-//     Eigen::Vector3d b2 = x.cross(b1).normalized();
-//     return (matrix<3, 2>() << b1, b2).finished();
-// }
+Eigen::Matrix<double, 3, 2> s2_tangential_basis_barrel(const Eigen::Vector3d &x) {
+    Eigen::Vector3d b1 =
+        x.cross(abs(x.z()) < 0.866 ? Eigen::Vector3d::UnitZ() : Eigen::Vector3d::UnitY())
+            .normalized();
+    Eigen::Vector3d b2 = x.cross(b1).normalized();
+    return (Eigen::Matrix<double, 3, 2>() << b1, b2).finished();
+}

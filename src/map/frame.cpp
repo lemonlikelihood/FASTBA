@@ -3,6 +3,12 @@
 #include "feature.h"
 #include "sliding_window.h"
 
+Frame::~Frame() = default;
+
+Frame::Frame() = default;
+
+Frame::Frame(size_t id) : Identifiable(id) {}
+
 Eigen::Vector2d Frame::remove_k(const Eigen::Vector2d &p) {
     return {(p(0) - K(0, 2)) / K(0, 0), (p(1) - K(1, 2)) / K(1, 1)};
 }
@@ -12,7 +18,7 @@ Eigen::Vector2d Frame::apply_k(const Eigen::Vector2d &p) {
 }
 
 std::unique_ptr<Frame> Frame::clone() const {
-    std::unique_ptr<Frame> frame = std::make_unique<Frame>();
+    std::unique_ptr<Frame> frame = std::make_unique<Frame>(id());
     frame->K = K;
     frame->sqrt_inv_cov = sqrt_inv_cov;
     frame->image = image;
@@ -32,15 +38,15 @@ std::unique_ptr<Frame> Frame::clone() const {
 
 Pose Frame::get_camera_pose() const {
     Pose ret;
-    ret.q = pose.q * camera_extri.q;
-    ret.p = pose.p + pose.q * camera_extri.p;
+    ret.q = this->pose.q * camera_extri.q;
+    ret.p = this->pose.p + this->pose.q * camera_extri.p;
     return ret;
 }
 
 Pose Frame::get_imu_pose() const {
     Pose ret;
-    ret.q = pose.q * imu_extri.q;
-    ret.p = pose.p + pose.q * imu_extri.p;
+    ret.q = this->pose.q * imu_extri.q;
+    ret.p = this->pose.p + this->pose.q * imu_extri.p;
     return ret;
 }
 
@@ -50,12 +56,12 @@ Pose Frame::get_body_pose() const {
 
 void Frame::set_camera_pose(const Pose &camera_pose) {
     this->pose.q = camera_pose.q * camera_extri.q.conjugate();
-    this->pose.p = camera_pose.p - pose.q * camera_extri.p;
+    this->pose.p = camera_pose.p - this->pose.q * camera_extri.p;
 }
 
 void Frame::set_imu_pose(const Pose &imu_pose) {
     this->pose.q = imu_pose.q * imu_extri.q.conjugate();
-    this->pose.p = imu_pose.p - pose.q * imu_extri.p;
+    this->pose.p = imu_pose.p - this->pose.q * imu_extri.p;
 }
 
 void Frame::append_keypoint(const Eigen::Vector2d &keypoint) {
@@ -96,12 +102,31 @@ void Frame::track_keypoints(Frame *next_frame) {
     std::vector<Eigen::Vector2d> curr_keypoints(keypoints.size());
     std::vector<Eigen::Vector2d> next_keypoints;
 
-    log_debug("[Frame::track_keypoints]: curr_keypoints: {}", curr_keypoints.size());
     for (size_t i = 0; i < keypoints.size(); ++i) {
         curr_keypoints[i] = keypoints[i];
     }
 
     // if()
+    bool predict_keypoints = true;
+    if (predict_keypoints) { //
+        Eigen::Quaternion delta_key_q =
+            (camera_extri.q.conjugate() * imu_extri.q * next_frame->preintegration.delta.q
+             * next_frame->imu_extri.q.conjugate() * next_frame->camera_extri.q)
+                .conjugate();
+        next_keypoints.resize(curr_keypoints.size());
+        for (size_t i = 0; i < keypoints.size(); ++i) {
+            next_keypoints[i] =
+                apply_k((delta_key_q * keypoints_normalized[i].homogeneous()).hnormalized());
+        }
+        log_info("camera_extri.q: {}", camera_extri.q.coeffs().transpose());
+        log_info("imu_extri.q: {}", imu_extri.q.coeffs().transpose());
+        log_info(
+            "next_frame->preintegration.delta.q: {}",
+            next_frame->preintegration.delta.q.coeffs().transpose());
+        log_info("next_frame->imu_extri.q: {}", next_frame->imu_extri.q.coeffs().transpose());
+        log_info("next_frame->camera_extri.q: {}", next_frame->camera_extri.q.coeffs().transpose());
+        log_info("delta_key_q: {}", delta_key_q.coeffs().transpose());
+    }
     std::vector<char> status;
     image->track_keypoints(next_frame->image.get(), curr_keypoints, next_keypoints, status);
 

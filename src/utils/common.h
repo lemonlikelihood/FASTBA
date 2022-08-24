@@ -36,6 +36,8 @@
 #include "debug.h"
 #include <Eigen/Eigen>
 
+#define GRAVITY_NORM 9.80665
+
 inline constexpr size_t nil() {
     return size_t(-1);
 }

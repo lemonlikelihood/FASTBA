@@ -58,11 +58,14 @@ void OpenCvImage::detect_keypoints(
         std::vector<Vector2d> new_keypoints;
         for (size_t i = 0; i < cvkeypoints.size(); ++i) {
             new_keypoints.emplace_back(cvkeypoints[i].pt.x, cvkeypoints[i].pt.y);
+            // log_info(
+            //     "[new_keypoints]: {},{},{}", i, new_keypoints.back().transpose(),
+            //     cvkeypoints[i].response);
         }
+
         PoissonKeypointFilter filter(
-            keypoint_distance, image.cols - keypoint_distance, keypoint_distance,
-            image.rows - keypoint_distance,
-            keypoint_distance); // 新检测到的关键点过滤器，-20 避免关键点处在图像边缘处
+            20, image.cols - 20, 20, image.rows - 20,
+            20.0); // 新检测到的关键点过滤器，-20 避免关键点处在图像边缘处
         filter.set_points(keypoints);
         filter.filter(new_keypoints); // 函数调用完成后 new_keypoints 保存的是通过检测的关键点
 
@@ -92,6 +95,12 @@ void OpenCvImage::track_keypoints(
         next_keypoints.resize(curr_keypoints.size()); // 否则直接用上一帧的值作为初始值
         next_cvpoints = curr_cvpoints;
     }
+
+    // for (size_t i = 0; i < next_keypoints.size(); ++i) {
+    //     log_info(
+    //         "[track keypoints]: i: {}, {} , {}", i, curr_keypoints[i].transpose(),
+    //         next_keypoints[i].transpose());
+    // }
 
     const OpenCvImage *next_cvimage = dynamic_cast<const OpenCvImage *>(next_image);
 
@@ -177,11 +186,11 @@ cv::CLAHE *OpenCvImage::clahe() {
     return s_clahe.get();
 }
 
-cv::line_descriptor::LSDDetector *OpenCvImage::lsd() { // 线段描述符提取器
-    static cv::Ptr<cv::line_descriptor::LSDDetector> s_lsd =
-        cv::line_descriptor::LSDDetector::createLSDDetector();
-    return s_lsd.get();
-}
+// cv::line_descriptor::LSDDetector *OpenCvImage::lsd() { // 线段描述符提取器
+//     static cv::Ptr<cv::line_descriptor::LSDDetector> s_lsd =
+//         cv::line_descriptor::LSDDetector::createLSDDetector();
+//     return s_lsd.get();
+// }
 
 cv::GFTTDetector *OpenCvImage::
     gftt() { // 提取fast角点，1000最大角点数，角点最小特征值，角点之间的最小距离，是否使用harris

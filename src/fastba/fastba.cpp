@@ -45,8 +45,8 @@ FASTBA::create_frame(std::shared_ptr<Image> image, DatasetConfigurator *dataset_
     frame->sqrt_inv_cov = frame->K.block<2, 2>(0, 0) / ::sqrt(0.7);
     frame->camera_extri.q = dataset_config->camera_to_body_rotation();
     frame->camera_extri.p = dataset_config->camera_to_body_translation();
-    frame->imu_extri.q = dataset_config->camera_to_body_rotation();
-    frame->imu_extri.p = dataset_config->camera_to_body_translation();
+    frame->imu_extri.q = dataset_config->imu_to_body_rotation();
+    frame->imu_extri.p = dataset_config->imu_to_body_translation();
     frame->preintegration.cov_w = dataset_config->imu_gyro_white_noise();
     frame->preintegration.cov_a = dataset_config->imu_accel_white_noise();
     frame->preintegration.cov_bg = dataset_config->imu_gyro_random_walk();
@@ -58,9 +58,12 @@ void FASTBA::feed_image(std::shared_ptr<Image> image, DatasetConfigurator *datas
     auto frame = create_frame(image, dataset_config);
     get_imu(frame.get());
     if (!f_initialized) {
-        initializer->append_frame(std::move(frame));
-        if (initializer->init()) {
+        // initializer->append_frame(std::move(frame));
+        track_frame(initializer->sw.get(), std::move(frame));
+        if (std::unique_ptr<SlidingWindow> init_sw = initializer->init()) {
+            init_sw.swap(sw);
             f_initialized = true;
+            log_info("f_initialized: frame num: {}", initializer->sw->frame_num());
             for (size_t frame_id = 0; frame_id < sw->frame_num(); ++frame_id) {
                 double reprojection_error = 0;
                 int reprojection_num = 0;
@@ -100,9 +103,67 @@ void FASTBA::feed_image(std::shared_ptr<Image> image, DatasetConfigurator *datas
             log_info("[feed_monocular]: init success");
             getchar();
         } else {
+            initializer->map->clear();
             log_info("[feed_monocular]: init failed");
             return;
         }
+    } else {
+        track_frame(sw.get(), std::move(frame));
+    }
+}
+
+
+void FASTBA::track_frame(SlidingWindow *sw, std::unique_ptr<Frame> frame) {
+    if (sw->frame_num() > 0) {
+        Frame *last_frame = sw->get_last_frame();
+        log_debug("[append_frame()]: last_frame_id: {}", last_frame->id());
+        frame->preintegration.integrate(
+            frame->image->t, last_frame->motion.bg, last_frame->motion.ba, true, false);
+        log_debug("[append_frame()]: integrate success");
+        last_frame->track_keypoints(frame.get());
+        log_debug("[append_frame()]: track_keypoint success");
+    }
+    frame->detect_keypoints();
+    sw->append_frame(std::move(frame));
+    if (sw->frame_num() > 1) {
+        std::vector<Eigen::Vector2d> frame_i_keypoints;
+        std::vector<Eigen::Vector2d> frame_j_keypoints;
+
+        Frame *frame_i = sw->get_second_to_last_frame();
+        Frame *frame_j = sw->get_last_frame();
+
+        for (size_t ki = 0; ki < frame_i->keypoint_num(); ++ki) {
+            Feature *feature = frame_i->get_feature(ki);
+            if (!feature)
+                continue;
+            size_t kj = feature->get_observation_index(frame_j);
+            if (kj == nil())
+                continue;
+            frame_i_keypoints.push_back(frame_i->get_keypoint_normalized(ki));
+            frame_j_keypoints.push_back(frame_j->get_keypoint_normalized(kj));
+        }
+
+        const int32_t rows = frame_i->image->image.rows;
+        const int32_t cols = frame_i->image->image.cols;
+        cv::Mat img1 = frame_i->image->image;
+        cv::Mat img2 = frame_j->image->image;
+        cv::Mat combined(rows * 2, cols, CV_8UC1);
+        img1.copyTo(combined.rowRange(0, rows));
+        img2.copyTo(combined.rowRange(rows, rows * 2));
+        cv::cvtColor(combined, combined, cv::COLOR_GRAY2RGBA);
+        for (int i = 0; i < frame_i_keypoints.size(); i++) {
+            Eigen::Vector2d pi = frame_i->apply_k(frame_i_keypoints[i]);
+            cv::Point2d cv_pi = {pi.x(), pi.y()};
+            // std::cout << "pi: " << pi << std::endl;
+            cv::circle(combined, cv_pi, 5, cv::Scalar(255, 0, 0));
+            Eigen::Vector2d pj = frame_j->apply_k(frame_j_keypoints[i]);
+            cv::Point2d cv_pj = {pj.x(), pj.y()};
+            // std::cout << "pj: " << pj << std::endl;
+            cv::circle(combined, cv_pj + cv::Point2d(0, rows), 5, cv::Scalar(0, 255, 0));
+            cv::line(combined, cv_pi, cv_pj + cv::Point2d(0, rows), cv::Scalar(0, 0, 255));
+        }
+        cv::imshow("continue optical flow", combined);
+        // cv::waitKey(0);
     }
 }
 
@@ -162,6 +223,7 @@ FASTBA::FASTBA() {
     // tracker = std::make_unique<KLTTracker>();
     sw = std::make_unique<SlidingWindow>();
     initializer = std::make_unique<Initializer>();
+    f_initialized = false;
     // m_initializer->m_raw_sliding_window = m_sliding_window;
 }
 
@@ -178,4 +240,5 @@ void FASTBA::get_imu(Frame *frame) {
             imu_buff.pop_front();
         }
     }
+    log_debug("[get_imu]: get imu over");
 }

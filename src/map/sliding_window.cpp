@@ -102,6 +102,7 @@ void SlidingWindow::compute_reprojections() {
 void SlidingWindow::log_feature_reprojections() {
     int feature_cnt = 0;
     double sum_error = 0;
+    log_info("feature_num: {}", feature_num());
     for (int i = 0; i < feature_num(); ++i) {
         Feature *feature = get_feature(i);
         if (!feature->flag(FeatureFlag::FF_VALID))

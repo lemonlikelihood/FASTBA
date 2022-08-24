@@ -37,5 +37,5 @@ inline Eigen::Vector3d logmap(const Eigen::Quaterniond &q) {
 
 Eigen::Matrix3d right_jacobian(const Eigen::Vector3d &w);
 Eigen::Matrix3d right_jacobian_inv(const Eigen::Vector3d &w);
-// matrix<3, 2> s2_tangential_basis(const Eigen::Vector3d &x);
-// matrix<3, 2> s2_tangential_basis_barrel(const Eigen::Vector3d &x);
+Eigen::Matrix<double, 3, 2> s2_tangential_basis(const Eigen::Vector3d &x);
+Eigen::Matrix<double, 3, 2> s2_tangential_basis_barrel(const Eigen::Vector3d &x);

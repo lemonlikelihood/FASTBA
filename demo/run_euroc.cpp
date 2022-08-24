@@ -3,9 +3,29 @@
 #include "../src/geometry/lie_algebra.h"
 #include "../src/utils/debug.h"
 
-int main() {
-    std::string euroc_path = "/Users/lemon/dataset/MH_02";
-    auto dataset_reader = std::make_unique<EurocDatasetReader>(euroc_path);
+#include <lyra/lyra.hpp>
+
+int main(int argc, const char *argv[]) {
+    bool show_help = false;
+
+    std::string euroc_data_path;
+    std::string config_file_path;
+
+    auto cli =
+        lyra::cli() | lyra::help(show_help).description("Run FastBA")
+        | lyra::opt(euroc_data_path, "dataset path")["-d"]["--dataset-path"]("Euroc dataset path")
+              .required()
+        | lyra::opt(config_file_path, "config path")["-c"]["--config-path"]("Config file path");
+
+
+    auto cli_result = cli.parse({argc, argv});
+    if (!cli_result) {
+        fmt::print(stderr, "{}\n\n{}\n", cli_result.message(), cli);
+        return -1;
+    }
+
+    // std::string euroc_path = "/Users/lemon/dataset/MH_05";
+    auto dataset_reader = std::make_unique<EurocDatasetReader>(euroc_data_path);
 
     double t;
     Eigen::Vector3d w;
