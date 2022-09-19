@@ -21,12 +21,15 @@ void Feature::remove_observation(Frame *frame, bool suicide_if_empty) {
     // } else {
     //     flag(FeatureFlag::FF_VALID) = false;
     // }
+    if (observation_refs.size() == 1) {
+        flag(FeatureFlag::FF_VALID) = false;
+    }
 
     frame->features[keypoint_index] = nullptr;
     frame->reprojection_factors[keypoint_index].reset();
     observation_refs.erase(frame);
     if (suicide_if_empty && observation_refs.size() == 0) {
-        sw->recycle_feature(this);
+        map->recycle_feature(this);
     }
 }
 
@@ -49,7 +52,7 @@ bool Feature::triangulate() {
     double score = 0;
     if (triangulate_point_scored(Ps, ps, p, score)) {
         p_in_G = p;
-        log_info("index_in_sw: {}, score: {}", index_in_sw, score);
+        // log_info("index_in_map: {}, score: {}", index_in_map, score);
         flag(FeatureFlag::FF_VALID) = true;
     } else {
         flag(FeatureFlag::FF_VALID) = false;

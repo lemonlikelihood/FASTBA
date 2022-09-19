@@ -1,13 +1,13 @@
 #include "frame.h"
 #include "../optimizer/preintegrator.h"
 #include "feature.h"
-#include "sliding_window.h"
+#include "map.h"
 
 Frame::~Frame() = default;
 
 Frame::Frame() = default;
 
-Frame::Frame(size_t id) : Identifiable(id) {}
+Frame::Frame(size_t id) : Identifiable(id), map(nullptr) {}
 
 Eigen::Vector2d Frame::remove_k(const Eigen::Vector2d &p) {
     return {(p(0) - K(0, 2)) / K(0, 0), (p(1) - K(1, 2)) / K(1, 1)};
@@ -32,7 +32,6 @@ std::unique_ptr<Frame> Frame::clone() const {
     frame->reprojection_factors = std::vector<std::unique_ptr<Factor>>(keypoints.size());
     frame->preintegration = preintegration;
     frame->map = nullptr;
-    frame->sw = nullptr;
     return frame;
 }
 
@@ -72,7 +71,7 @@ void Frame::append_keypoint(const Eigen::Vector2d &keypoint) {
 
 Feature *Frame::get_feature_if_empty_create(size_t keypoint_id) {
     if (features[keypoint_id] == nullptr) {
-        Feature *feature = sw->create_feature();
+        Feature *feature = map->create_feature();
         feature->add_observation(this, keypoint_id);
     }
     return features[keypoint_id];
@@ -94,7 +93,9 @@ void Frame::detect_keypoints() {
         keypoints[i] = pkeypoints[i];
         keypoints_normalized[i] = remove_k(pkeypoints[i]);
     }
-    log_info("detect_keypoints success, old: {} new: {}", old_keypoint_num, keypoints.size());
+    log_info(
+        "[feature map]: frame detect_keypoints, tracked keypoints: {}, now all keypoints: {}",
+        old_keypoint_num, keypoints.size());
 }
 
 
@@ -106,7 +107,6 @@ void Frame::track_keypoints(Frame *next_frame) {
         curr_keypoints[i] = keypoints[i];
     }
 
-    // if()
     bool predict_keypoints = true;
     if (predict_keypoints) { //
         Eigen::Quaternion delta_key_q =
@@ -118,14 +118,12 @@ void Frame::track_keypoints(Frame *next_frame) {
             next_keypoints[i] =
                 apply_k((delta_key_q * keypoints_normalized[i].homogeneous()).hnormalized());
         }
-        log_info("camera_extri.q: {}", camera_extri.q.coeffs().transpose());
-        log_info("imu_extri.q: {}", imu_extri.q.coeffs().transpose());
-        log_info(
-            "next_frame->preintegration.delta.q: {}",
+        log_debug(
+            "[feature map]: frame track_keypoints, predicted imu dq: {}",
             next_frame->preintegration.delta.q.coeffs().transpose());
-        log_info("next_frame->imu_extri.q: {}", next_frame->imu_extri.q.coeffs().transpose());
-        log_info("next_frame->camera_extri.q: {}", next_frame->camera_extri.q.coeffs().transpose());
-        log_info("delta_key_q: {}", delta_key_q.coeffs().transpose());
+        log_debug(
+            "[feature map]: frame track_keypoints, predicted image dq: {}",
+            delta_key_q.coeffs().transpose());
     }
     std::vector<char> status;
     image->track_keypoints(next_frame->image.get(), curr_keypoints, next_keypoints, status);
@@ -145,5 +143,15 @@ void Frame::track_keypoints(Frame *next_frame) {
             keypoint_tracked_num++;
         }
     }
-    log_info("track_keypoints success, old: {} new: {}", keypoints.size(), keypoint_tracked_num);
+    log_info(
+        "[feature map]: frame track_keypoints, last frame keypoints: {}, success tracked: {}",
+        keypoints.size(), keypoint_tracked_num);
+}
+
+std::unique_lock<std::mutex> Frame::lock() const {
+    if (map) {
+        return map->lock();
+    } else {
+        return {};
+    }
 }

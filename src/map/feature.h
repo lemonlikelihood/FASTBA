@@ -6,7 +6,7 @@
 #include <vector>
 
 #include "frame.h"
-#include "sliding_window.h"
+#include "map.h"
 
 class Observation {
 public:
@@ -20,12 +20,12 @@ public:
     Eigen::Vector2d uv;
 };
 
-enum class FeatureFlag { FF_VALID = 0, FF_TRIANGULATED, FLAG_NUM };
+enum class FeatureFlag { FF_VALID = 0, FF_TRIANGULATED, FF_FIXED, FLAG_NUM };
 
-class Feature : public Flagged<FeatureFlag> {
+class Feature : public Flagged<FeatureFlag>, public Identifiable<Feature> {
 public:
     Feature();
-    ~Feature();
+    virtual ~Feature();
 
     const std::map<Frame *, size_t> &observation_map() const { return observation_refs; }
 
@@ -52,9 +52,11 @@ public:
     void add_observation(Frame *frame, size_t keypoint_index);
     void remove_observation(Frame *, bool suicide_if_empty = true);
 
+    std::unique_lock<std::mutex> lock() const { return map->lock(); }
+
     bool triangulate();
-    size_t index_in_sw;
-    SlidingWindow *sw;
+    size_t index_in_map;
+    Map *map;
     Eigen::Vector3d p_in_A;
     double inv_depth_in_A;
     Eigen::Vector3d p_in_G;

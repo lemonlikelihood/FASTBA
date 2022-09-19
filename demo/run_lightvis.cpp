@@ -1,5 +1,6 @@
 #include <lightvis/lightvis.h>
 #include <lightvis/shader.h>
+#include <lyra/lyra.hpp>
 #include <nuklear.h>
 #include <thread>
 
@@ -421,13 +422,29 @@ public:
     double last_frame_time;
 };
 
-int main() {
-    // std::string trajectory_path =
-    //     "/data/datas/EUROC/MH_01_easy/mav0/state_groundtruth_estimate0/data.tum";
-    std::string trajectory_path =
-        "/Users/lemon/dataset/MH_01/mav0/state_groundtruth_estimate0/data.tum";
+int main(int argc, const char *argv[]) {
+
+    // bool show_help = false;
+
+    // std::string euroc_data_path;
+    // std::string config_file_path;
+
+    // auto cli =
+    //     lyra::cli() | lyra::help(show_help).description("Run FastBA")
+    //     | lyra::opt(euroc_data_path, "dataset path")["-d"]["--dataset-path"]("Euroc dataset path")
+    //           .required()
+    //     | lyra::opt(config_file_path, "config path")["-c"]["--config-path"]("Config file path");
+
+
+    // auto cli_result = cli.parse({argc, argv});
+    // if (!cli_result) {
+    //     fmt::print(stderr, "{}\n\n{}\n", cli_result.message(), cli);
+    //     return -1;
+    // }
+
+    std::string euroc_path = "/Users/lemon/dataset/MH_05";
     bool traj_is_portrait = false;
-    TrajectoryVisualizer visualizer(trajectory_path);
+    TrajectoryVisualizer visualizer(euroc_data_path);
     visualizer.traj_is_portrait = false;
     visualizer.show();
     return lightvis::main();

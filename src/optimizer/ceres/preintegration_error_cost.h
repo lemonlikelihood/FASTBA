@@ -14,6 +14,8 @@ public:
     PreIntegrationErrorCost(const Frame *frame_i, const Frame *frame_j)
         : frame_i(frame_i), frame_j(frame_j) {}
 
+    void update() override {}
+
     bool Evaluate(
         const double *const *parameters, double *residuals, double **jacobians) const override {
         static const Eigen::Vector3d gravity = {0.0, 0.0, -9.80665};

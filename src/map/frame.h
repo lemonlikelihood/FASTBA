@@ -8,7 +8,6 @@
 #include "../optimizer/preintegrator.h"
 
 class Feature;
-class SlidingWindow;
 class Map;
 
 struct create_if_empty_t {};
@@ -28,12 +27,12 @@ enum class FrameFlag {
 
 class Frame : public Flagged<FrameFlag>, public Identifiable<Frame> {
     friend class Feature;
-    friend class SlidingWindow;
+    friend class Map;
 
 public:
     Frame();
     Frame(size_t id);
-    ~Frame();
+    virtual ~Frame();
     Eigen::Vector2d remove_k(const Eigen::Vector2d &p);
     Eigen::Vector2d apply_k(const Eigen::Vector2d &p);
 
@@ -41,17 +40,19 @@ public:
 
     size_t keypoint_num() const { return keypoints.size(); }
 
-    const Eigen::Vector2d &get_keypoint(size_t keypoint_id) const { return keypoints[keypoint_id]; }
+    const Eigen::Vector2d &get_keypoint(size_t keypoint_index) const {
+        return keypoints[keypoint_index];
+    }
 
     void append_keypoint(const Eigen::Vector2d &keypoint);
 
-    const Eigen::Vector2d &get_keypoint_normalized(size_t keypoint_id) const {
-        return keypoints_normalized[keypoint_id];
+    const Eigen::Vector2d &get_keypoint_normalized(size_t keypoint_index) const {
+        return keypoints_normalized[keypoint_index];
     }
 
-    Feature *get_feature(size_t keypoint_id) const { return features[keypoint_id]; }
+    Feature *get_feature(size_t keypoint_index) const { return features[keypoint_index]; }
 
-    Feature *get_feature_if_empty_create(size_t keypoint_id);
+    Feature *get_feature_if_empty_create(size_t keypoint_index);
 
     Factor *get_preintegration_factor() { return preintegration_factor.get(); }
 
@@ -68,6 +69,10 @@ public:
 
     void set_camera_pose(const Pose &pose);
     void set_imu_pose(const Pose &pose);
+
+    bool has_map() const { return map != nullptr; }
+
+    std::unique_lock<std::mutex> lock() const;
 
     int index_in_map;
     //    std::string m_camera_model;
@@ -87,7 +92,6 @@ public:
 
     PreIntegrator preintegration;
 
-    SlidingWindow *sw;
     Map *map;
 
 private:

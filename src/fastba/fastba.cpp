@@ -5,7 +5,7 @@
 #include "../geometry/stereo.h"
 #include "../map/feature.h"
 #include "../map/frame.h"
-#include "../map/sliding_window.h"
+#include "../map/map.h"
 #include "../utils/debug.h"
 
 bool FASTBA::feed_monocular(Frame *frame) {
@@ -39,7 +39,8 @@ std::unique_ptr<Frame>
 FASTBA::create_frame(std::shared_ptr<Image> image, DatasetConfigurator *dataset_config) {
     auto frame = std::make_unique<Frame>();
     // frame->m_K = config->camera_intrinsic;
-    log_debug("create frame id: {}", frame->id());
+    log_info("[fastba]: create frame id: {}", frame->id());
+    log_info("[fastba]: create frame timestamp: {}", image->t);
     frame->image = image;
     frame->K = dataset_config->camera_intrinsic();
     frame->sqrt_inv_cov = frame->K.block<2, 2>(0, 0) / ::sqrt(0.7);
@@ -56,81 +57,59 @@ FASTBA::create_frame(std::shared_ptr<Image> image, DatasetConfigurator *dataset_
 
 void FASTBA::feed_image(std::shared_ptr<Image> image, DatasetConfigurator *dataset_config) {
     auto frame = create_frame(image, dataset_config);
+    size_t fid = frame->id();
     get_imu(frame.get());
-    if (!f_initialized) {
+    if (initializer) {
         // initializer->append_frame(std::move(frame));
-        track_frame(initializer->sw.get(), std::move(frame));
-        if (std::unique_ptr<SlidingWindow> init_sw = initializer->init()) {
-            init_sw.swap(sw);
+        track_frame(feature_tracking_map.get(), std::move(frame));
+        initializer->mirror_keyframe_map(feature_tracking_map.get(), fid);
+        if (sliding_window_tracker = initializer->init()) {
             f_initialized = true;
-            log_info("f_initialized: frame num: {}", initializer->sw->frame_num());
-            for (size_t frame_id = 0; frame_id < sw->frame_num(); ++frame_id) {
-                double reprojection_error = 0;
-                int reprojection_num = 0;
-                Frame *frame = sw->get_frame(frame_id);
-
-                log_info("frame id: {}", frame->id());
-                log_info("frame t: {}", frame->image->t);
-                log_info("frame p: {}", frame->get_body_pose().p.transpose());
-                log_info("frame q: {}", frame->get_body_pose().q.coeffs().transpose());
-
-                for (size_t i = 0; i < frame->keypoint_num(); ++i) {
-                    Feature *feature = frame->get_feature(i);
-                    if (!feature)
-                        continue;
-                    if (feature->flag(FeatureFlag::FF_VALID)) {
-                        Pose pose = frame->get_camera_pose();
-                        Eigen::Vector2d r =
-                            frame->apply_k(
-                                (pose.q.conjugate() * (feature->p_in_G - pose.p)).hnormalized())
-                            - frame->get_keypoint(i);
-                        Eigen::Vector3d y_body =
-                            frame->pose.q.conjugate() * (feature->p_in_G - frame->pose.p);
-                        Eigen::Vector3d y_cam =
-                            frame->camera_extri.q.conjugate() * (y_body - frame->camera_extri.p);
-
-                        Eigen::Vector2d r1 =
-                            frame->apply_k(y_cam.hnormalized()) - frame->get_keypoint(i);
-
-                        log_info("r1: {}", r1.transpose());
-                        log_info("r: {}", r.transpose());
-                        reprojection_error += r.norm();
-                        reprojection_num++;
-                    }
-                }
-                log_info("reprojection error: {}", reprojection_error / reprojection_num);
-            }
-            log_info("[feed_monocular]: init success");
-            getchar();
+            auto [pose, motion] = sliding_window_tracker->get_latest_state();
+            latest_state = {fid, pose, motion};
+            initializer.reset();
+            log_info("[fastba]: feed_image, init success");
+            // getchar();
         } else {
-            initializer->map->clear();
-            log_info("[feed_monocular]: init failed");
+            log_error("[initializer]: frame {} is initialized failedly", fid);
             return;
         }
-    } else {
-        track_frame(sw.get(), std::move(frame));
+    } else if (sliding_window_tracker) {
+        track_frame(feature_tracking_map.get(), std::move(frame));
+        sliding_window_tracker->mirror_frame(feature_tracking_map.get(), fid);
+        if (sliding_window_tracker->track()) {
+            auto [pose, motion] = sliding_window_tracker->get_latest_state();
+            latest_state = {fid, pose, motion};
+        } else {
+            log_info("[sliding_window_tracker]: track failed reset");
+            getchar();
+            initializer = std::make_unique<Initializer>();
+            f_initialized = false;
+            sliding_window_tracker.reset();
+        }
     }
 }
 
 
-void FASTBA::track_frame(SlidingWindow *sw, std::unique_ptr<Frame> frame) {
-    if (sw->frame_num() > 0) {
-        Frame *last_frame = sw->get_last_frame();
-        log_debug("[append_frame()]: last_frame_id: {}", last_frame->id());
+void FASTBA::track_frame(Map *map, std::unique_ptr<Frame> frame) {
+    if (map->frame_num() > 0) {
+        Frame *last_frame = map->get_last_frame();
+        log_info("[feature map]: last_frame_id: {}", last_frame->id());
         frame->preintegration.integrate(
             frame->image->t, last_frame->motion.bg, last_frame->motion.ba, true, false);
-        log_debug("[append_frame()]: integrate success");
+        log_info("[feature map]: imu intagrated");
         last_frame->track_keypoints(frame.get());
-        log_debug("[append_frame()]: track_keypoint success");
     }
     frame->detect_keypoints();
-    sw->append_frame(std::move(frame));
-    if (sw->frame_num() > 1) {
+    size_t fid = frame->id();
+    map->append_frame(std::move(frame));
+    log_info("[feature map]: frame {} is appended to feature map successfully", fid);
+    if (map->frame_num() > 1) {
         std::vector<Eigen::Vector2d> frame_i_keypoints;
         std::vector<Eigen::Vector2d> frame_j_keypoints;
 
-        Frame *frame_i = sw->get_second_to_last_frame();
-        Frame *frame_j = sw->get_last_frame();
+        Frame *frame_i = map->get_second_to_last_frame();
+        Frame *frame_j = map->get_last_frame();
 
         for (size_t ki = 0; ki < frame_i->keypoint_num(); ++ki) {
             Feature *feature = frame_i->get_feature(ki);
@@ -163,20 +142,20 @@ void FASTBA::track_frame(SlidingWindow *sw, std::unique_ptr<Frame> frame) {
             cv::line(combined, cv_pi, cv_pj + cv::Point2d(0, rows), cv::Scalar(0, 0, 255));
         }
         cv::imshow("continue optical flow", combined);
-        // cv::waitKey(0);
+        cv::waitKey(1);
     }
 }
 
 void FASTBA::feed_gt_camera_pose(const Pose &pose) {
-    Frame *curr_frame = sw->get_frame(sw->frame_num() - 1);
+    Frame *curr_frame = feature_tracking_map->get_frame(feature_tracking_map->frame_num() - 1);
     curr_frame->gt_pose = pose;
     // compute_essential();
 }
 
 void FASTBA::compute_essential() {
-    if (sw->frame_num() >= 2) {
-        Frame *curr_frame = sw->get_frame(sw->frame_num() - 1);
-        Frame *last_frame = sw->get_frame(sw->frame_num() - 2);
+    if (feature_tracking_map->frame_num() >= 2) {
+        Frame *curr_frame = feature_tracking_map->get_frame(feature_tracking_map->frame_num() - 1);
+        Frame *last_frame = feature_tracking_map->get_frame(feature_tracking_map->frame_num() - 2);
         log_info("curr_frame->m_keypoints_normalized.size()", curr_frame->keypoint_num());
         std::vector<Eigen::Vector2d> last_keypoint_vec;
         std::vector<Eigen::Vector2d> curr_keypoint_vec;
@@ -221,7 +200,7 @@ void FASTBA::compute_essential() {
 
 FASTBA::FASTBA() {
     // tracker = std::make_unique<KLTTracker>();
-    sw = std::make_unique<SlidingWindow>();
+    feature_tracking_map = std::make_unique<Map>();
     initializer = std::make_unique<Initializer>();
     f_initialized = false;
     // m_initializer->m_raw_sliding_window = m_sliding_window;
@@ -240,5 +219,11 @@ void FASTBA::get_imu(Frame *frame) {
             imu_buff.pop_front();
         }
     }
-    log_debug("[get_imu]: get imu over");
+    log_info(
+        "[fastba]: frame {} is associated to imu, imu size: {}", frame->id(),
+        frame->preintegration.data.size());
+}
+
+std::tuple<size_t, Pose, MotionState> FASTBA::get_lastest_state() const {
+    return latest_state;
 }

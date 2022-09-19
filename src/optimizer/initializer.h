@@ -1,17 +1,19 @@
 #pragma once
 #include "../utils/common.h"
+#include "sliding_window_tracker.h"
 
 class Frame;
-class SlidingWindow;
+class Map;
 
 class Initializer {
 public:
     Initializer();
     ~Initializer();
     void append_frame(std::unique_ptr<Frame> frame);
-    std::unique_ptr<SlidingWindow> init();
-    std::unique_ptr<SlidingWindow> sw;
-    std::unique_ptr<SlidingWindow> map;
+    std::unique_ptr<SlidingWindowTracker> init();
+    std::unique_ptr<Map> map;
+
+    void mirror_keyframe_map(Map *feature_tracking_map, size_t init_frame_id);
 
 private:
     void solve_gyro_bias();

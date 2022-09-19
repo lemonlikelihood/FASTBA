@@ -81,10 +81,10 @@ inline Eigen::Vector4d triangulate_point(
     const Eigen::Matrix<double, 3, 4> &P1, const Eigen::Matrix<double, 3, 4> &P2,
     const Eigen::Vector2d &point1, const Eigen::Vector2d &point2) {
     Eigen::Matrix4d A;
-    A.row(0) = point1(0) * P1.row(2) - P1.row(0);
-    A.row(1) = point1(1) * P1.row(2) - P1.row(1);
-    A.row(2) = point2(0) * P2.row(2) - P2.row(0);
-    A.row(3) = point2(1) * P2.row(2) - P2.row(1);
+    A.row(0) = point1.x() * P1.row(2) - P1.row(0);
+    A.row(1) = point1.y() * P1.row(2) - P1.row(1);
+    A.row(2) = point2.x() * P2.row(2) - P2.row(0);
+    A.row(3) = point2.y() * P2.row(2) - P2.row(1);
     return A.jacobiSvd(Eigen::ComputeFullV).matrixV().col(3);
 }
 
@@ -161,5 +161,6 @@ inline bool triangulate_point_scored(
     }
     score /= points.size();
     p = q.hnormalized();
-    return true;
+    // return true;
+    return score < 1.0;
 }

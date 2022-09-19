@@ -3,7 +3,7 @@
 
 #include "../map/feature.h"
 #include "../map/frame.h"
-#include "../map/sliding_window.h"
+#include "../map/map.h"
 #include "ceres/lie_algebra_eigen_quaternion_parameterization.h"
 #include "ceres/preintegration_error_cost.h"
 #include "ceres/reprojection_error_cost.h"
@@ -11,7 +11,7 @@
 using namespace ceres;
 
 void visual_inertial_pnp(
-    SlidingWindow *map, Frame *frame, bool use_inertial, size_t max_iter, const double &max_time) {
+    Map *map, Frame *frame, bool use_inertial, size_t max_iter, const double &max_time) {
     LocalParameterization *eigen_quaternion = new LieAlgebraEigenQuaternionParamatrization;
     LossFunction *cauchy_loss = new CauchyLoss(1.0);
 
@@ -20,8 +20,9 @@ void visual_inertial_pnp(
     problem.AddParameterBlock(frame->pose.q.coeffs().data(), 4, eigen_quaternion);
     problem.AddParameterBlock(frame->pose.p.data(), 3);
 
+    Frame *last_frame = map->get_last_frame();
+
     if (use_inertial) {
-        Frame *last_frame = map->get_last_frame();
         problem.AddResidualBlock(
             new PreIntegrationPriorCost(last_frame, frame), nullptr, frame->pose.q.coeffs().data(),
             frame->pose.p.data(), frame->motion.v.data(), frame->motion.bg.data(),
@@ -33,6 +34,8 @@ void visual_inertial_pnp(
         Feature *feature = frame->get_feature(i);
         if (!feature)
             continue;
+        if (!feature->has_observation(last_frame))
+            continue;
         if (feature->flag(FeatureFlag::FF_VALID)) {
             valid_num++;
             problem.AddResidualBlock(
@@ -40,6 +43,8 @@ void visual_inertial_pnp(
                 frame->pose.q.coeffs().data(), frame->pose.p.data());
         }
     }
+
+    log_info("[pnp]: valid num: {}", valid_num);
 
     Solver::Options solver_options;
     solver_options.linear_solver_type = ceres::DENSE_SCHUR;
@@ -54,5 +59,4 @@ void visual_inertial_pnp(
 
     Solver::Summary solver_summary;
     Solve(solver_options, &problem, &solver_summary);
-    std::cout << solver_summary.BriefReport() << std::endl;
 }

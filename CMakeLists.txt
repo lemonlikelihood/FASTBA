@@ -289,7 +289,7 @@ add_executable(run_euroc
                 src/fastba/fastba.cpp 
                 src/map/frame.cpp 
                 src/map/map.cpp
-                src/map/sliding_window.cpp
+                # src/map/sliding_window.cpp
                 # src/map/tracker.cpp
                 src/map/feature.cpp
                 src/optimizer/ceres/preintegration_error_cost.h
@@ -299,6 +299,7 @@ add_executable(run_euroc
                 src/optimizer/pnp.cpp
                 src/optimizer/bundle_adjustor.cpp
                 src/optimizer/initializer.cpp
+                src/optimizer/sliding_window_tracker.cpp
                 src/geometry/stereo.cpp
                 src/geometry/essential.cpp
                 src/geometry/homography.cpp

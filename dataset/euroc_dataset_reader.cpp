@@ -62,11 +62,11 @@ std::shared_ptr<Image> EurocDatasetReader::read_image() {
     // std::cout << "image_absolute_path: " << image_absolute_path << std::endl;
     // 去畸变和直方图均衡化
     auto image_data = std::make_shared<OpenCvImage>(data.t, image_absolute_path);
-    std::cout << "image: " << data.t << " " << image_absolute_path << std::endl;
-    std::cout << "dataset_config->camera_intrinsic: \n"
-              << dataset_config->camera_intrinsic() << std::endl;
-    std::cout << "dataset_config->distortion_coeffs: "
-              << dataset_config->distortion_coeffs().transpose() << std::endl;
+    // std::cout << "image: " << data.t << " " << image_absolute_path << std::endl;
+    // std::cout << "dataset_config->camera_intrinsic: \n"
+    //           << dataset_config->camera_intrinsic() << std::endl;
+    // std::cout << "dataset_config->distortion_coeffs: "
+    //           << dataset_config->distortion_coeffs().transpose() << std::endl;
     image_data->correct_distortion(
         dataset_config->camera_intrinsic(), dataset_config->distortion_coeffs());
     image_data->preprocess();

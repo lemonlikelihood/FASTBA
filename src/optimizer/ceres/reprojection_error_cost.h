@@ -13,6 +13,8 @@ public:
     ReprojectionErrorCost(const Frame *frame, size_t keypoint_id)
         : frame(frame), keypoint_id(keypoint_id) {}
 
+    void update() override {}
+
     bool Evaluate(
         const double *const *parameters, double *residuals, double **jacobians) const override {
         Eigen::Map<const Eigen::Quaterniond> q_center(parameters[0]);

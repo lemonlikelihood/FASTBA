@@ -93,13 +93,13 @@ bool PreIntegrator::integrate(
     reset();
     for (size_t i = 0; i + 1 < data.size(); ++i) {
         const IMUData &d = data[i];
-        log_info("[integrate]: i: {},t: {},bg: {},ba: {}", i, d.t, bg.transpose(), ba.transpose());
+        // log_info("[integrate]: i: {},t: {},bg: {},ba: {}", i, d.t, bg.transpose(), ba.transpose());
         increment(data[i + 1].t - d.t, d, bg, ba, compute_jacobian, compute_covariance);
     }
     increment(t - data.back().t, data.back(), bg, ba, compute_jacobian, compute_covariance);
-    log_info(
-        "[integrate]: i: {},t: {},bg: {},ba: {}", data.size() - 1, data.back().t, bg.transpose(),
-        ba.transpose());
+    // log_info(
+    // "[integrate]: i: {},t: {},bg: {},ba: {}", data.size() - 1, data.back().t, bg.transpose(),
+    // ba.transpose());
     if (compute_covariance) {
         compute_sqrt_inv_cov();
     }
@@ -112,7 +112,7 @@ void PreIntegrator::compute_sqrt_inv_cov() {
 }
 
 void PreIntegrator::predict(const Frame *old_frame, Frame *new_frame) {
-    static const Eigen::Vector3d gravity = {0, 0, -9.81};
+    static const Eigen::Vector3d gravity = {0, 0, -9.80665};
     new_frame->motion.bg = old_frame->motion.bg;
     new_frame->motion.ba = old_frame->motion.ba;
     new_frame->motion.v = old_frame->motion.v + gravity * delta.t + old_frame->pose.q * delta.v;
