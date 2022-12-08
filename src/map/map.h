@@ -43,6 +43,8 @@ public:
 
     Feature *create_feature();
 
+    void update_feature_state();
+
     void erase_feature(Feature *feature);
 
     void prune_features(const std::function<bool(const Feature *)> &condition);
@@ -53,7 +55,9 @@ public:
 
     std::unique_lock<std::mutex> lock() const { return std::unique_lock(map_mutex); }
 
-    double compute_reprojections();
+    std::pair<double, double> compute_reprojections();
+
+    std::pair<double, double> compute_reprojections_without_last_frame();
 
     void log_feature_reprojections();
 

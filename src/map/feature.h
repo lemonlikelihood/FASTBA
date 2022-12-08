@@ -20,7 +20,16 @@ public:
     Eigen::Vector2d uv;
 };
 
-enum class FeatureFlag { FF_VALID = 0, FF_TRIANGULATED, FF_FIXED, FLAG_NUM };
+enum class FeatureFlag {
+    FF_VALID = 0,
+    FF_TRIANGULATED,
+    FF_STABLE,
+    FF_GOOD,
+    FF_DEAD,
+    FF_LOST,
+    FF_FIXED,
+    FLAG_NUM
+};
 
 class Feature : public Flagged<FeatureFlag>, public Identifiable<Feature> {
 public:
@@ -28,6 +37,8 @@ public:
     virtual ~Feature();
 
     const std::map<Frame *, size_t> &observation_map() const { return observation_refs; }
+
+    size_t observation_num() const { return observation_refs.size(); }
 
     bool has_observation(Frame *frame) const { return observation_refs.count(frame) > 0; }
 

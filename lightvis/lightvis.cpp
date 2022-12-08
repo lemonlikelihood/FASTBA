@@ -104,7 +104,7 @@ struct panel_t {
     int height() const {
         int total_height = 0;
         for (size_t i = 0; i < widgets.size(); ++i) {
-            if (not ignored(i)) {
+            if (! ignored(i)) {
                 total_height += widgets[i]->height();
             }
         }
@@ -119,7 +119,7 @@ struct panel_t {
             widget_rect.y = 1;
             widget_rect.w = width();
             for (size_t i = 0; i < widgets.size(); ++i) {
-                if (not ignored(i)) {
+                if (! ignored(i)) {
                     widget_rect.h = widgets[i]->height();
                     widgets[i]->draw(context, widget_rect);
                     widget_rect.y += widget_rect.h;
@@ -129,10 +129,8 @@ struct panel_t {
             nk_command_buffer *canvas = nk_window_get_canvas(context);
             nk_fill_rect(canvas, nk_rect(0, 0, width() + 2, 1), 0, nk_rgba(255, 255, 255, 64));
             nk_fill_rect(canvas, nk_rect(0, 0, 1, height() + 2), 0, nk_rgba(255, 255, 255, 64));
-            nk_fill_rect(
-                canvas, nk_rect(0, height() + 1, width() + 2, 1), 0, nk_rgba(0, 0, 0, 192));
-            nk_fill_rect(
-                canvas, nk_rect(width() + 1, 0, 1, height() + 2), 0, nk_rgba(0, 0, 0, 192));
+            nk_fill_rect(canvas, nk_rect(0, height() + 1, width() + 2, 1), 0, nk_rgba(0, 0, 0, 192));
+            nk_fill_rect(canvas, nk_rect(width() + 1, 0, 1, height() + 2), 0, nk_rgba(0, 0, 0, 192));
         }
         nk_end(context);
     }
@@ -157,8 +155,7 @@ struct separator_widget_t : public widget_base_t {
 };
 
 bool panel_t::ignored(size_t i) const {
-    return (i + 1 == widgets.size())
-           && (dynamic_cast<const separator_widget_t *>(widgets[i].get()) != nullptr);
+    return (i + 1 == widgets.size()) && (dynamic_cast<const separator_widget_t *>(widgets[i].get()) != nullptr);
 }
 
 struct label_widget_t : public widget_base_t {
@@ -177,7 +174,7 @@ struct label_widget_t : public widget_base_t {
 struct image_widget_t : public widget_base_t {
     image_widget_t(panel_t *panel, const Image *image) : image(image), widget_base_t(panel) {}
     int height() const override {
-        if (not image->empty()) {
+        if (! image->empty()) {
             return (width() * image->size.y() / image->size.x());
         } else {
             return 0;
@@ -185,7 +182,7 @@ struct image_widget_t : public widget_base_t {
     }
 
     void draw(nk_context *context, const struct nk_rect &rect) override {
-        if (not image->empty()) {
+        if (! image->empty()) {
             nk_layout_space_push(context, rect);
             nk_image(context, image->nuklear_image);
         }
@@ -195,8 +192,7 @@ struct image_widget_t : public widget_base_t {
 };
 
 struct graph_widget_t : public widget_base_t {
-    graph_widget_t(panel_t *panel, const std::vector<double> &values)
-        : values(values), widget_base_t(panel) {}
+    graph_widget_t(panel_t *panel, const std::vector<double> &values) : values(values), widget_base_t(panel) {}
 
     int height() const override { return 50; }
 
@@ -223,8 +219,7 @@ struct progress_widget_t : public widget_base_t {
     void draw(nk_context *context, const struct nk_rect &rect) override {
         nk_command_buffer *canvas = nk_window_get_canvas(context);
         float v = std::clamp(value, 0.0, 1.0);
-        nk_fill_rect(
-            canvas, nk_rect(rect.x, rect.y, width() * v, height()), 0, nk_rgb(255, 255, 0));
+        nk_fill_rect(canvas, nk_rect(rect.x, rect.y, width() * v, height()), 0, nk_rgb(255, 255, 0));
     }
 
     const double &value;
@@ -294,7 +289,7 @@ public:
     }
 
     panel_t *get_panel(const std::string &name = "default") {
-        if (not panels.count(name)) {
+        if (! panels.count(name)) {
             panels[name] = std::make_unique<panel_t>();
         }
         return panels.at(name).get();
@@ -393,9 +388,9 @@ public:
     }
 
     void draw_grid() {
-        static std::vector<Eigen::Vector3f> bounding_box_vertices {
-            {10, 10, 10},   {-10, 10, 10},   {-10, -10, 10}, {10, -10, 10},
-            {10, -10, -10}, {-10, -10, -10}, {-10, 10, -10}, {10, 10, -10}};
+        static std::vector<Eigen::Vector3f> bounding_box_vertices {{10, 10, 10},   {-10, 10, 10},  {-10, -10, 10},
+                                                                   {10, -10, 10},  {10, -10, -10}, {-10, -10, -10},
+                                                                   {-10, 10, -10}, {10, 10, -10}};
         static std::vector<unsigned int> bounding_box_edges {0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6,
                                                              6, 7, 0, 7, 0, 3, 4, 7, 1, 6, 2, 5};
 
@@ -406,8 +401,7 @@ public:
         gl::glBlendFunc(gl::GL_SRC_ALPHA, gl::GL_ONE_MINUS_SRC_ALPHA);
 
         grid_shader->bind();
-        grid_shader->set_uniform(
-            "ProjMat", Eigen::Matrix4f(projection_matrix() * view_matrix() * model_matrix()));
+        grid_shader->set_uniform("ProjMat", Eigen::Matrix4f(projection_matrix() * view_matrix() * model_matrix()));
 
         grid_shader->set_uniform("Color", Eigen::Vector4f {1.0, 1.0, 1.0, 0.25});
         grid_shader->set_attribute("Position", bounding_box_vertices);
@@ -434,8 +428,7 @@ public:
     void draw_positions() {
         gl::glDisable(gl::GL_DEPTH_TEST);
         position_shader->bind();
-        position_shader->set_uniform(
-            "ProjMat", Eigen::Matrix4f(projection_matrix() * view_matrix() * model_matrix()));
+        position_shader->set_uniform("ProjMat", Eigen::Matrix4f(projection_matrix() * view_matrix() * model_matrix()));
         position_shader->set_uniform("Location", viewport.world_xyz);
         position_shader->set_uniform("Scale", viewport.scale);
         for (const auto &record : position_records) {
@@ -464,8 +457,7 @@ public:
         glfwMakeContextCurrent(context.window);
         glbinding::useCurrentContext();
         glfwGetWindowSize(context.window, &viewport.window_size.x(), &viewport.window_size.y());
-        glfwGetFramebufferSize(
-            context.window, &viewport.framebuffer_size.x(), &viewport.framebuffer_size.y());
+        glfwGetFramebufferSize(context.window, &viewport.framebuffer_size.x(), &viewport.framebuffer_size.y());
     }
 
     void process_events() {
@@ -482,16 +474,14 @@ public:
         nk_input_key(nuklear, NK_KEY_DEL, glfwGetKey(window, GLFW_KEY_DELETE) == GLFW_PRESS);
         nk_input_key(nuklear, NK_KEY_ENTER, glfwGetKey(window, GLFW_KEY_ENTER) == GLFW_PRESS);
         nk_input_key(nuklear, NK_KEY_TAB, glfwGetKey(window, GLFW_KEY_TAB) == GLFW_PRESS);
-        nk_input_key(
-            nuklear, NK_KEY_BACKSPACE, glfwGetKey(window, GLFW_KEY_BACKSPACE) == GLFW_PRESS);
+        nk_input_key(nuklear, NK_KEY_BACKSPACE, glfwGetKey(window, GLFW_KEY_BACKSPACE) == GLFW_PRESS);
         nk_input_key(nuklear, NK_KEY_UP, glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS);
         nk_input_key(nuklear, NK_KEY_DOWN, glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS);
         nk_input_key(nuklear, NK_KEY_TEXT_START, glfwGetKey(window, GLFW_KEY_HOME) == GLFW_PRESS);
         nk_input_key(nuklear, NK_KEY_TEXT_END, glfwGetKey(window, GLFW_KEY_END) == GLFW_PRESS);
         nk_input_key(nuklear, NK_KEY_SCROLL_START, glfwGetKey(window, GLFW_KEY_HOME) == GLFW_PRESS);
         nk_input_key(nuklear, NK_KEY_SCROLL_END, glfwGetKey(window, GLFW_KEY_END) == GLFW_PRESS);
-        nk_input_key(
-            nuklear, NK_KEY_SCROLL_DOWN, glfwGetKey(window, GLFW_KEY_PAGE_DOWN) == GLFW_PRESS);
+        nk_input_key(nuklear, NK_KEY_SCROLL_DOWN, glfwGetKey(window, GLFW_KEY_PAGE_DOWN) == GLFW_PRESS);
         nk_input_key(nuklear, NK_KEY_SCROLL_UP, glfwGetKey(window, GLFW_KEY_PAGE_UP) == GLFW_PRESS);
 
         bool shift_left = (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS);
@@ -505,20 +495,14 @@ public:
 
         if (control_down) {
             if (shift_down) {
-                nk_input_key(
-                    nuklear, NK_KEY_TEXT_REDO, glfwGetKey(window, GLFW_KEY_Z) == GLFW_PRESS);
+                nk_input_key(nuklear, NK_KEY_TEXT_REDO, glfwGetKey(window, GLFW_KEY_Z) == GLFW_PRESS);
             } else {
                 nk_input_key(nuklear, NK_KEY_COPY, glfwGetKey(window, GLFW_KEY_C) == GLFW_PRESS);
                 nk_input_key(nuklear, NK_KEY_PASTE, glfwGetKey(window, GLFW_KEY_V) == GLFW_PRESS);
                 nk_input_key(nuklear, NK_KEY_CUT, glfwGetKey(window, GLFW_KEY_X) == GLFW_PRESS);
-                nk_input_key(
-                    nuklear, NK_KEY_TEXT_UNDO, glfwGetKey(window, GLFW_KEY_Z) == GLFW_PRESS);
-                nk_input_key(
-                    nuklear, NK_KEY_TEXT_WORD_LEFT,
-                    glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS);
-                nk_input_key(
-                    nuklear, NK_KEY_TEXT_WORD_RIGHT,
-                    glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS);
+                nk_input_key(nuklear, NK_KEY_TEXT_UNDO, glfwGetKey(window, GLFW_KEY_Z) == GLFW_PRESS);
+                nk_input_key(nuklear, NK_KEY_TEXT_WORD_LEFT, glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS);
+                nk_input_key(nuklear, NK_KEY_TEXT_WORD_RIGHT, glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS);
             }
         } else {
             nk_input_key(nuklear, NK_KEY_LEFT, glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS);
@@ -535,20 +519,20 @@ public:
         nk_input_button(nuklear, NK_BUTTON_MIDDLE, (int)x, (int)y, (int)button_middle);
         nk_input_button(nuklear, NK_BUTTON_RIGHT, (int)x, (int)y, (int)button_right);
         nk_input_button(
-            nuklear, NK_BUTTON_DOUBLE, events.double_click_position.x(),
-            events.double_click_position.y(), events.double_click);
+            nuklear, NK_BUTTON_DOUBLE, events.double_click_position.x(), events.double_click_position.y(),
+            events.double_click);
         nk_input_scroll(nuklear, nk_vec2(events.scroll_offset.x(), events.scroll_offset.y()));
 
         nk_input_end(nuklear);
 
-        if (not nk_item_is_any_active(nuklear)) {
+        if (! nk_item_is_any_active(nuklear)) {
             MouseStates &states = mouse_states;
             states.mouse_left = button_left;
             states.mouse_middle = button_middle;
             states.mouse_right = button_right;
             states.mouse_double_click = events.double_click;
             states.scroll = events.scroll_offset;
-            if (not(states.mouse_left || states.mouse_middle || states.mouse_right)) {
+            if (! (states.mouse_left || states.mouse_middle || states.mouse_right)) {
                 states.mouse_normal_position = {x, y};
             }
             states.mouse_drag_position = {x, y};
@@ -556,17 +540,15 @@ public:
             states.control_right = control_right;
             states.shift_left = shift_left;
             states.shift_right = shift_right;
-            if (not vis->mouse(states)) {
+            if (! vis->mouse(states)) {
                 static Eigen::Vector3f last_ypr;
-                if (not(states.mouse_left || states.mouse_middle || states.mouse_right)
-                    && title == "LVO") {
+                if (! (states.mouse_left || states.mouse_middle || states.mouse_right) && title == "LVO") {
                     last_ypr = viewport.viewport_ypr;
                 }
                 Eigen::Vector2f drag = states.mouse_drag_position - states.mouse_normal_position;
                 viewport.viewport_ypr.x() = last_ypr.x() - drag.x() / 8;
                 viewport.viewport_ypr.y() = last_ypr.y() - drag.y() / 8;
-                viewport.scale = std::clamp(
-                    viewport.scale * (1.0 + events.scroll_offset.y() / 100.0), 1.0e-4, 1.0e4);
+                viewport.scale = std::clamp(viewport.scale * (1.0 + events.scroll_offset.y() / 100.0), 1.0e-4, 1.0e4);
             }
         }
 
@@ -588,10 +570,7 @@ public:
     }
     void render_gui() {
         gl::GLfloat ortho[4][4] = {
-            {2.0f, 0.0f, 0.0f, 0.0f},
-            {0.0f, -2.0f, 0.0f, 0.0f},
-            {0.0f, 0.0f, -1.0f, 0.0f},
-            {-1.0f, 1.0f, 0.0f, 1.0f}};
+            {2.0f, 0.0f, 0.0f, 0.0f}, {0.0f, -2.0f, 0.0f, 0.0f}, {0.0f, 0.0f, -1.0f, 0.0f}, {-1.0f, 1.0f, 0.0f, 1.0f}};
         ortho[0][0] /= (gl::GLfloat)viewport.window_size.x();
         ortho[1][1] /= (gl::GLfloat)viewport.window_size.y();
 
@@ -639,10 +618,8 @@ public:
         nk_buffer_init_default(&ebuffer);
         nk_convert(&context.nuklear, &context.commands, &vbuffer, &ebuffer, &config);
 
-        gl::glBufferData(
-            gl::GL_ARRAY_BUFFER, nk_buffer_total(&vbuffer), nullptr, gl::GL_STREAM_DRAW);
-        gl::glBufferData(
-            gl::GL_ELEMENT_ARRAY_BUFFER, nk_buffer_total(&ebuffer), nullptr, gl::GL_STREAM_DRAW);
+        gl::glBufferData(gl::GL_ARRAY_BUFFER, nk_buffer_total(&vbuffer), nullptr, gl::GL_STREAM_DRAW);
+        gl::glBufferData(gl::GL_ELEMENT_ARRAY_BUFFER, nk_buffer_total(&ebuffer), nullptr, gl::GL_STREAM_DRAW);
 
         void *vertices = gl::glMapBuffer(gl::GL_ARRAY_BUFFER, gl::GL_WRITE_ONLY);
         void *elements = gl::glMapBuffer(gl::GL_ELEMENT_ARRAY_BUFFER, gl::GL_WRITE_ONLY);
@@ -656,8 +633,8 @@ public:
         nk_buffer_free(&ebuffer);
         nk_buffer_free(&vbuffer);
 
-        Eigen::Vector2f framebuffer_scale = viewport.framebuffer_size.cast<float>().array()
-                                            / viewport.window_size.cast<float>().array();
+        Eigen::Vector2f framebuffer_scale =
+            viewport.framebuffer_size.cast<float>().array() / viewport.window_size.cast<float>().array();
         const nk_draw_command *command;
         const nk_draw_index *offset = nullptr;
         nk_draw_foreach(command, &context.nuklear, &context.commands) {
@@ -667,12 +644,10 @@ public:
             gl::glScissor(
                 (gl::GLint)(command->clip_rect.x * framebuffer_scale.x()),
                 (gl::GLint)(
-                    (viewport.window_size.y() - (command->clip_rect.y + command->clip_rect.h))
-                    * framebuffer_scale.y()),
+                    (viewport.window_size.y() - (command->clip_rect.y + command->clip_rect.h)) * framebuffer_scale.y()),
                 (gl::GLint)(command->clip_rect.w * framebuffer_scale.x()),
                 (gl::GLint)(command->clip_rect.h * framebuffer_scale.y()));
-            gl::glDrawElements(
-                gl::GL_TRIANGLES, (gl::GLsizei)command->elem_count, gl::GL_UNSIGNED_SHORT, offset);
+            gl::glDrawElements(gl::GL_TRIANGLES, (gl::GLsizei)command->elem_count, gl::GL_UNSIGNED_SHORT, offset);
             offset += command->elem_count;
         }
         nk_clear(&context.nuklear);
@@ -692,21 +667,19 @@ public:
         glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
         glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
         glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-#ifdef __APPLE__
+#if defined(__APPLE__)
         glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, (int)gl::GL_TRUE);
 #endif
 
-        if ((context.window = glfwCreateWindow(
-                 viewport.window_size.x(), viewport.window_size.y(), title.c_str(), nullptr,
-                 nullptr))
+        if ((context.window =
+                 glfwCreateWindow(viewport.window_size.x(), viewport.window_size.y(), title.c_str(), nullptr, nullptr))
             == nullptr)
             return;
 
         active_windows()[context.window] = vis;
         glfwMakeContextCurrent(context.window);
         glbinding::initialize(glfwGetProcAddress, false);
-        glfwGetFramebufferSize(
-            context.window, &viewport.framebuffer_size.x(), &viewport.framebuffer_size.y());
+        glfwGetFramebufferSize(context.window, &viewport.framebuffer_size.x(), &viewport.framebuffer_size.y());
         glfwSwapInterval(0);
 
         nk_init_default(&context.nuklear, 0);
@@ -780,8 +753,8 @@ public:
             (gl::GLuint)context.attribute_texcoord, 2, gl::GL_FLOAT, gl::GL_FALSE, sizeof(vertex_t),
             (void *)offsetof(vertex_t, texcoord));
         gl::glVertexAttribPointer(
-            (gl::GLuint)context.attribute_color, 4, gl::GL_UNSIGNED_BYTE, gl::GL_TRUE,
-            sizeof(vertex_t), (void *)offsetof(vertex_t, color));
+            (gl::GLuint)context.attribute_color, 4, gl::GL_UNSIGNED_BYTE, gl::GL_TRUE, sizeof(vertex_t),
+            (void *)offsetof(vertex_t, color));
 
         gl::glBindTexture(gl::GL_TEXTURE_2D, 0);
         gl::glBindBuffer(gl::GL_ARRAY_BUFFER, 0);
@@ -792,19 +765,18 @@ public:
         int font_image_width, font_image_height;
         nk_font_atlas_init_default(&context.font_atlas);
         nk_font_atlas_begin(&context.font_atlas);
-        nk_font *roboto = nk_font_atlas_add_from_memory(
-            &context.font_atlas, Roboto_Regular_ttf, Roboto_Regular_ttf_len, 16, nullptr);
-        font_image = nk_font_atlas_bake(
-            &context.font_atlas, &font_image_width, &font_image_height, NK_FONT_ATLAS_RGBA32);
+        nk_font *roboto =
+            nk_font_atlas_add_from_memory(&context.font_atlas, Roboto_Regular_ttf, Roboto_Regular_ttf_len, 16, nullptr);
+        font_image =
+            nk_font_atlas_bake(&context.font_atlas, &font_image_width, &font_image_height, NK_FONT_ATLAS_RGBA32);
         gl::glGenTextures(1, &context.font_texture);
         gl::glBindTexture(gl::GL_TEXTURE_2D, context.font_texture);
         gl::glTexParameteri(gl::GL_TEXTURE_2D, gl::GL_TEXTURE_MIN_FILTER, gl::GL_LINEAR);
         gl::glTexParameteri(gl::GL_TEXTURE_2D, gl::GL_TEXTURE_MAG_FILTER, gl::GL_LINEAR);
         gl::glTexImage2D(
-            gl::GL_TEXTURE_2D, 0, gl::GL_RGBA, (gl::GLsizei)font_image_width,
-            (gl::GLsizei)font_image_height, 0, gl::GL_RGBA, gl::GL_UNSIGNED_BYTE, font_image);
-        nk_font_atlas_end(
-            &context.font_atlas, nk_handle_id((int)context.font_texture), &context.null_texture);
+            gl::GL_TEXTURE_2D, 0, gl::GL_RGBA, (gl::GLsizei)font_image_width, (gl::GLsizei)font_image_height, 0,
+            gl::GL_RGBA, gl::GL_UNSIGNED_BYTE, font_image);
+        nk_font_atlas_end(&context.font_atlas, nk_handle_id((int)context.font_texture), &context.null_texture);
         nk_style_set_font(&context.nuklear, &roboto->handle);
 
         glfwSetMouseButtonCallback(context.window, LightVisDetail::mouse_input_callback);
@@ -850,9 +822,7 @@ public:
         memset(&context, 0, sizeof(context_t));
     }
 
-    static void error_callback(int error, const char *description) {
-        fprintf(stderr, "GLFW Error: %s\n", description);
-    }
+    static void error_callback(int error, const char *description) { fprintf(stderr, "GLFW Error: %s\n", description); }
 
     static void mouse_input_callback(GLFWwindow *win, int button, int action, int mods) {
         auto &events = active_windows().at(win)->detail->events;
@@ -913,7 +883,7 @@ public:
     static int main() {
         glfwInit();
         glfwSetErrorCallback(error_callback);
-        while (not active_windows().empty() || not awaiting_windows().empty()) {
+        while ((! active_windows().empty()) || (! awaiting_windows().empty())) {
             /* spawn windows */ {
                 for (auto vis : awaiting_windows()) {
                     vis->detail->create_window();
@@ -965,7 +935,7 @@ LightVis::~LightVis() {
 }
 
 void LightVis::show() {
-    if (not detail->context.window) {
+    if (! detail->context.window) {
         awaiting_windows().insert(this);
     }
 }
@@ -1025,8 +995,7 @@ void LightVis::add_points(std::vector<Eigen::Vector3f> &points, Eigen::Vector4f 
     detail->position_records.push_back(record);
 }
 
-void LightVis::add_points(
-    std::vector<Eigen::Vector3f> &points, std::vector<Eigen::Vector4f> &colors) {
+void LightVis::add_points(std::vector<Eigen::Vector3f> &points, std::vector<Eigen::Vector4f> &colors) {
     position_record_t record;
     record.is_trajectory = false;
     record.data = &points;
@@ -1044,8 +1013,7 @@ void LightVis::add_trajectory(std::vector<Eigen::Vector3f> &positions, Eigen::Ve
     detail->position_records.push_back(record);
 }
 
-void LightVis::add_trajectory(
-    std::vector<Eigen::Vector3f> &positions, std::vector<Eigen::Vector4f> &colors) {
+void LightVis::add_trajectory(std::vector<Eigen::Vector3f> &positions, std::vector<Eigen::Vector4f> &colors) {
     position_record_t record;
     record.is_trajectory = true;
     record.data = &positions;
@@ -1056,8 +1024,8 @@ void LightVis::add_trajectory(
 
 void LightVis::add_separator() {
     panel_t *p = detail->get_panel();
-    if (not p->widgets.empty()) {
-        if (not dynamic_cast<separator_widget_t *>(p->widgets.back().get())) {
+    if (! p->widgets.empty()) {
+        if (! dynamic_cast<separator_widget_t *>(p->widgets.back().get())) {
             p->widgets.emplace_back(std::make_unique<separator_widget_t>(p));
         }
     }
@@ -1103,6 +1071,95 @@ void LightVis::gui(void *ctx, int w, int h) {
     for (auto &[name, panel] : detail->panels) {
         panel->draw(context, name);
     }
+}
+
+void LightVis::draw_axis() {
+    std::vector<Eigen::Vector3f> draw_point;
+    std::vector<Eigen::Vector4f> draw_color;
+    draw_point.resize(6);
+    draw_color.resize(6);
+
+    std::array<Eigen::Vector3d, 4> cone_points;
+    cone_points[0] = {0, 0, 0};
+    cone_points[1] = {5, 0, 0};
+    cone_points[2] = {0, 5, 0};
+    cone_points[3] = {0, 0, 5};
+
+    draw_color[0] = {1, 0, 0, 1};
+    draw_color[1] = {1, 0, 0, 1};
+    draw_color[2] = {0, 1, 0, 1};
+    draw_color[3] = {0, 1, 0, 1};
+    draw_color[4] = {0, 0, 1, 1};
+    draw_color[5] = {0, 0, 1, 1};
+
+    draw_point[0] = cone_points[0].cast<float>();
+    draw_point[1] = cone_points[1].cast<float>();
+    draw_point[2] = cone_points[0].cast<float>();
+    draw_point[3] = cone_points[2].cast<float>();
+    draw_point[4] = cone_points[0].cast<float>();
+    draw_point[5] = cone_points[3].cast<float>();
+
+    shader()->bind();
+    shader()->set_uniform("ProjMat", Eigen::Matrix4f(projection_matrix() * view_matrix() * model_matrix()));
+    shader()->set_uniform("Location", location());
+    shader()->set_uniform("Scale", scale());
+    shader()->set_attribute("Position", draw_point);
+    shader()->set_attribute("Color", draw_color);
+    shader()->draw(gl::GL_LINES, 0, draw_point.size());
+    shader()->unbind();
+}
+
+void LightVis::draw_camera(
+    const Eigen::Vector3d &p, const Eigen::Quaterniond &q, const Eigen::Matrix3d &K, const Eigen::Vector4d &color,
+    const Eigen::Vector3d &velocity_dir, double size) {
+    std::vector<Eigen::Vector3f> draw_point;
+    std::vector<Eigen::Vector4f> draw_color;
+    draw_point.resize(18);
+    draw_color.resize(18);
+
+    std::array<Eigen::Vector3d, 6> cone_points;
+    Eigen::Matrix3d dcm = q.matrix();
+    cone_points[0] = p;
+    cone_points[1] = p + size * (dcm.col(2) * K(0, 0) + dcm.col(0) * K(0, 2) + dcm.col(1) * K(1, 2));
+    cone_points[2] = p + size * (dcm.col(2) * K(0, 0) + dcm.col(0) * K(0, 2) - dcm.col(1) * K(1, 2));
+    cone_points[3] = p + size * (dcm.col(2) * K(0, 0) - dcm.col(0) * K(0, 2) - dcm.col(1) * K(1, 2));
+    cone_points[4] = p + size * (dcm.col(2) * K(0, 0) - dcm.col(0) * K(0, 2) + dcm.col(1) * K(1, 2));
+    cone_points[5] = p + velocity_dir * 5.0;
+
+    draw_point[0] = cone_points[0].cast<float>();
+    draw_point[1] = cone_points[1].cast<float>();
+    draw_point[2] = cone_points[0].cast<float>();
+    draw_point[3] = cone_points[2].cast<float>();
+    draw_point[4] = cone_points[0].cast<float>();
+    draw_point[5] = cone_points[3].cast<float>();
+    draw_point[6] = cone_points[0].cast<float>();
+    draw_point[7] = cone_points[4].cast<float>();
+    draw_point[8] = cone_points[1].cast<float>();
+    draw_point[9] = cone_points[2].cast<float>();
+    draw_point[10] = cone_points[2].cast<float>();
+    draw_point[11] = cone_points[3].cast<float>();
+    draw_point[12] = cone_points[3].cast<float>();
+    draw_point[13] = cone_points[4].cast<float>();
+    draw_point[14] = cone_points[4].cast<float>();
+    draw_point[15] = cone_points[1].cast<float>();
+    draw_point[16] = cone_points[0].cast<float>();
+    draw_point[17] = cone_points[5].cast<float>();
+
+    for (int i = 0; i < 16; ++i) {
+        draw_color[i] = color.cast<float>();
+    }
+    Eigen::Vector4f velocity_color = {1.0, 1.0, 1.0, 0.8};
+    draw_color[16] = velocity_color;
+    draw_color[17] = velocity_color;
+
+    shader()->bind();
+    shader()->set_uniform("ProjMat", Eigen::Matrix4f(projection_matrix() * view_matrix() * model_matrix()));
+    shader()->set_uniform("Location", location());
+    shader()->set_uniform("Scale", scale());
+    shader()->set_attribute("Position", draw_point);
+    shader()->set_attribute("Color", draw_color);
+    shader()->draw(gl::GL_LINES, 0, draw_point.size());
+    shader()->unbind();
 }
 
 int main() {

@@ -209,6 +209,8 @@ bool Initializer::init_sfm() {
         Feature *feature = init_frame_i->get_feature(init_matches[k].first);
         feature->p_in_G = init_points[k]; // 3D点信息与track绑定，就是与每一帧绑定
         feature->flag(FeatureFlag::FF_VALID) = true;
+        feature->flag(FeatureFlag::FF_STABLE) = true;
+        feature->flag(FeatureFlag::FF_TRIANGULATED) = true;
         init_points_num++;
         log_debug(
             "[initializer]: init feature i:{} p: {}", init_points_num, feature->p_in_G.transpose());
@@ -228,18 +230,30 @@ bool Initializer::init_sfm() {
     }
 
     {
-        double error = map->compute_reprojections();
+        auto [point_num, error] = map->compute_reprojections();
         // map->log_feature_reprojections();
         log_info("[initializer]: pnp reprojection error: {}", error);
     }
 
     // [2.5] triangulate more points
+
     for (size_t i = 0; i < map->feature_num();
          ++i) { // 对map中其他的track也进行三角化，增加更多的3D点
         Feature *feature = map->get_feature(i);
-        if (feature->flag(FeatureFlag::FF_VALID))
-            continue;           // 如果是初始三角化的点，不可以改变
-        feature->triangulate(); // 给track设置landmark值，并固定不变
+        if (feature->flag(FeatureFlag::FF_STABLE))
+            continue; // 如果是初始三角化的点，不可以改变
+        if (feature->triangulate()) {
+            if (feature->has_observation(init_frame_j)) {
+                feature->flag(FeatureFlag::FF_GOOD) = true;
+                feature->flag(FeatureFlag::FF_VALID) = true;
+            } else if (feature->has_observation(init_frame_i)) {
+                feature->flag(FeatureFlag::FF_DEAD) = true;
+                feature->flag(FeatureFlag::FF_VALID) = true;
+            } else {
+                feature->flag(FeatureFlag::FF_LOST) = true;
+                feature->flag(FeatureFlag::FF_VALID) = true;
+            }
+        }
     }
 
     // [3] sfm
@@ -253,7 +267,7 @@ bool Initializer::init_sfm() {
 
     // map->log_feature_reprojections();
     {
-        double error = map->compute_reprojections();
+        auto [point_num, error] = map->compute_reprojections();
         // map->log_feature_reprojections();
         log_info("[initializer]: BundleAdjustor reprojection error: {}", error);
     }
@@ -264,7 +278,7 @@ bool Initializer::init_sfm() {
     });
 
     {
-        double error = map->compute_reprojections();
+        auto [point_num, error] = map->compute_reprojections();
         // map->log_feature_reprojections();
         log_info("[initializer]: BundleAdjustor prune_features reprojection error: {}", error);
     }
@@ -776,7 +790,7 @@ void Initializer::refine_scale_velocity_via_gravity() {
 bool Initializer::apply_init() {
     log_info("[initializer]: apply_init, begin ...");
     {
-        double error = map->compute_reprojections();
+        auto [point_num, error] = map->compute_reprojections();
         log_info("[initializer]: apply_init, before reprojection error: {}", error);
         // map->log_feature_reprojections();
     }
@@ -827,7 +841,7 @@ bool Initializer::apply_init() {
     }
 
     {
-        double error = map->compute_reprojections();
+        auto [point_num, error] = map->compute_reprojections();
         log_info("[initializer]: apply_init, after reprojection error: {}", error);
         // map->log_feature_reprojections();
     }
@@ -883,7 +897,7 @@ std::unique_ptr<SlidingWindowTracker> Initializer::init() {
     }
 
     {
-        double error = map->compute_reprojections();
+        auto [point_num, error] = map->compute_reprojections();
         log_info("[initializer]: sfm-imu initialized, reprojection error: {}", error);
         // map->log_feature_reprojections();
     }
@@ -893,7 +907,7 @@ std::unique_ptr<SlidingWindowTracker> Initializer::init() {
     });
 
     {
-        double error = map->compute_reprojections();
+        auto [point_num, error] = map->compute_reprojections();
         log_info("[initializer]: sfm-imu initialized, reprojection error: {}", error);
         // map->log_feature_reprojections();
     }

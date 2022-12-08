@@ -45,6 +45,9 @@ void visual_inertial_pnp(
     }
 
     log_info("[pnp]: valid num: {}", valid_num);
+    if (valid_num < 30) {
+        getchar();
+    }
 
     Solver::Options solver_options;
     solver_options.linear_solver_type = ceres::DENSE_SCHUR;

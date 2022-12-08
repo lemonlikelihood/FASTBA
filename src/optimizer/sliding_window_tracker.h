@@ -17,11 +17,12 @@ public:
 
     void mirror_frame(Map *feature_tracking_map, size_t frame_id);
 
-    std::tuple<Pose, MotionState> get_latest_state() const;
+    std::tuple<TrackingState, Pose, MotionState> get_latest_state() const;
 
     bool track();
 
     std::unique_ptr<Map> map;
+    TrackingState tracking_state;
 
 private:
     void keyframe_check(Frame *frame);

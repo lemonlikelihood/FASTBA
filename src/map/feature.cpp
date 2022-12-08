@@ -21,7 +21,7 @@ void Feature::remove_observation(Frame *frame, bool suicide_if_empty) {
     // } else {
     //     flag(FeatureFlag::FF_VALID) = false;
     // }
-    if (observation_refs.size() == 1) {
+    if (observation_refs.size() <= 1) {
         flag(FeatureFlag::FF_VALID) = false;
     }
 
@@ -54,9 +54,10 @@ bool Feature::triangulate() {
         p_in_G = p;
         // log_info("index_in_map: {}, score: {}", index_in_map, score);
         flag(FeatureFlag::FF_VALID) = true;
+        flag(FeatureFlag::FF_TRIANGULATED) = true;
     } else {
         flag(FeatureFlag::FF_VALID) = false;
+        flag(FeatureFlag::FF_TRIANGULATED) = false;
     }
-    flag(FeatureFlag::FF_TRIANGULATED) = true;
-    return flag(FeatureFlag::FF_VALID);
+    return flag(FeatureFlag::FF_TRIANGULATED);
 }

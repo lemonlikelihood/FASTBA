@@ -65,8 +65,8 @@ void FASTBA::feed_image(std::shared_ptr<Image> image, DatasetConfigurator *datas
         initializer->mirror_keyframe_map(feature_tracking_map.get(), fid);
         if (sliding_window_tracker = initializer->init()) {
             f_initialized = true;
-            auto [pose, motion] = sliding_window_tracker->get_latest_state();
-            latest_state = {fid, pose, motion};
+            auto [tracking_state, pose, motion] = sliding_window_tracker->get_latest_state();
+            latest_state = {fid, tracking_state, pose, motion};
             initializer.reset();
             log_info("[fastba]: feed_image, init success");
             // getchar();
@@ -78,8 +78,8 @@ void FASTBA::feed_image(std::shared_ptr<Image> image, DatasetConfigurator *datas
         track_frame(feature_tracking_map.get(), std::move(frame));
         sliding_window_tracker->mirror_frame(feature_tracking_map.get(), fid);
         if (sliding_window_tracker->track()) {
-            auto [pose, motion] = sliding_window_tracker->get_latest_state();
-            latest_state = {fid, pose, motion};
+            auto [tracking_state, pose, motion] = sliding_window_tracker->get_latest_state();
+            latest_state = {fid, tracking_state, pose, motion};
         } else {
             log_info("[sliding_window_tracker]: track failed reset");
             getchar();
@@ -98,9 +98,9 @@ void FASTBA::track_frame(Map *map, std::unique_ptr<Frame> frame) {
         frame->preintegration.integrate(
             frame->image->t, last_frame->motion.bg, last_frame->motion.ba, true, false);
         log_info("[feature map]: imu intagrated");
-        last_frame->track_keypoints(frame.get());
+        last_frame->track_keypoints(config.get(), frame.get());
     }
-    frame->detect_keypoints();
+    frame->detect_keypoints(config.get());
     size_t fid = frame->id();
     map->append_frame(std::move(frame));
     log_info("[feature map]: frame {} is appended to feature map successfully", fid);
@@ -206,6 +206,15 @@ FASTBA::FASTBA() {
     // m_initializer->m_raw_sliding_window = m_sliding_window;
 }
 
+FASTBA::FASTBA(std::shared_ptr<Config> config) {
+    // tracker = std::make_unique<KLTTracker>();
+    feature_tracking_map = std::make_unique<Map>();
+    initializer = std::make_unique<Initializer>();
+    f_initialized = false;
+    this->config = config;
+    // m_initializer->m_raw_sliding_window = m_sliding_window;
+}
+
 FASTBA::~FASTBA() {}
 
 void FASTBA::feed_imu(const IMUData &imu) {
@@ -224,6 +233,6 @@ void FASTBA::get_imu(Frame *frame) {
         frame->preintegration.data.size());
 }
 
-std::tuple<size_t, Pose, MotionState> FASTBA::get_lastest_state() const {
+std::tuple<size_t, TrackingState, Pose, MotionState> FASTBA::get_lastest_state() const {
     return latest_state;
 }

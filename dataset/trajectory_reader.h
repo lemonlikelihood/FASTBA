@@ -5,11 +5,11 @@
 #include <iostream>
 #include <vector>
 
-struct Pose {
-    double t;
-    Eigen::Quaterniond q;
-    Eigen::Vector3d p;
-};
+// struct Pose {
+//     double t;
+//     Eigen::Quaterniond q;
+//     Eigen::Vector3d p;
+// };
 
 class TrajectoryReader {
 public:

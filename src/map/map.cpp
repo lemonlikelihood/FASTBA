@@ -85,6 +85,60 @@ size_t Map::get_frame_index_by_id(size_t id) const {
     return std::distance(frames.begin(), it);
 }
 
+void Map::update_feature_state() {
+    Frame *first_frame = get_first_frame();
+    Frame *last_frame = get_last_frame();
+    for (size_t i = 0; i < feature_num(); ++i) {
+        Feature *feature = get_feature(i);
+        if (!feature->flag(FeatureFlag::FF_VALID) || !feature->flag(FeatureFlag::FF_TRIANGULATED))
+            continue;
+        if (feature->has_observation(first_frame) && feature->has_observation(last_frame)) {
+            feature->flag(FeatureFlag::FF_STABLE) = true;
+            feature->flag(FeatureFlag::FF_GOOD) = false;
+            feature->flag(FeatureFlag::FF_DEAD) = false;
+            feature->flag(FeatureFlag::FF_LOST) = false;
+        } else if (feature->has_observation(first_frame) && !feature->has_observation(last_frame)) {
+            feature->flag(FeatureFlag::FF_STABLE) = false;
+            feature->flag(FeatureFlag::FF_GOOD) = false;
+            feature->flag(FeatureFlag::FF_DEAD) = true;
+            feature->flag(FeatureFlag::FF_LOST) = false;
+        } else if (!feature->has_observation(first_frame) && feature->has_observation(last_frame)) {
+            feature->flag(FeatureFlag::FF_STABLE) = false;
+            feature->flag(FeatureFlag::FF_GOOD) = true;
+            feature->flag(FeatureFlag::FF_DEAD) = false;
+            feature->flag(FeatureFlag::FF_LOST) = false;
+        } else if (
+            !feature->has_observation(first_frame) && !feature->has_observation(last_frame)) {
+            feature->flag(FeatureFlag::FF_STABLE) = false;
+            feature->flag(FeatureFlag::FF_GOOD) = false;
+            feature->flag(FeatureFlag::FF_DEAD) = false;
+            feature->flag(FeatureFlag::FF_LOST) = true;
+        }
+        // if (feature->flag(FeatureFlag::FF_LOST) && feature->has_observation(first_frame)) {
+        //     feature->flag(FeatureFlag::FF_LOST) = false;
+        //     feature->flag(FeatureFlag::FF_DEAD) = true;
+        // } else if (feature->flag(FeatureFlag::FF_GOOD) && feature->has_observation(first_frame)) {
+        //     feature->flag(FeatureFlag::FF_GOOD) = false;
+        //     feature->flag(FeatureFlag::FF_STABLE) = true;
+        // } else if (feature->flag(FeatureFlag::FF_STABLE) && !feature->has_observation(last_frame)) {
+        //     feature->flag(FeatureFlag::FF_STABLE) = false;
+        //     feature->flag(FeatureFlag::FF_DEAD) = true;
+        // } else if (feature->flag(FeatureFlag::FF_STABLE) && feature->has_observation(last_frame)) {
+        //     feature->flag(FeatureFlag::FF_STABLE) = true;
+        // } else if (feature->flag(FeatureFlag::FF_GOOD) && !feature->has_observation(last_frame)) {
+        //     feature->flag(FeatureFlag::FF_GOOD) = false;
+        //     feature->flag(FeatureFlag::FF_LOST) = true;
+        // } else if (feature->flag(FeatureFlag::FF_GOOD) && feature->has_observation(last_frame)) {
+        //     feature->flag(FeatureFlag::FF_GOOD) = true;
+        // } else if (
+        //     !feature->flag(FeatureFlag::FF_STABLE) && !feature->flag(FeatureFlag::FF_GOOD)
+        //     && !feature->flag(FeatureFlag::FF_DEAD) && !feature->flag(FeatureFlag::FF_LOST)
+        //     && feature->flag(FeatureFlag::FF_TRIANGULATED)) {
+        //     feature->flag(FeatureFlag::FF_GOOD) = true;
+        // }
+    }
+}
+
 Feature *Map::create_feature() {
     std::unique_ptr<Feature> feature = std::make_unique<Feature>();
     feature->index_in_map = features.size();
@@ -96,7 +150,7 @@ Feature *Map::create_feature() {
 }
 
 void Map::erase_feature(Feature *feature) {
-    while (feature->observation_map().size() > 0) {
+    while (feature->observation_num() > 0) {
         feature->remove_observation(feature->observation_map().begin()->first, false);
     }
     recycle_feature(feature);
@@ -134,9 +188,14 @@ void Map::recycle_feature(Feature *feature) {
     features.pop_back();
 }
 
-double Map::compute_reprojections() {
+std::pair<double, double> Map::compute_reprojections() {
     double reprojection_error = 0;
     int reprojection_num = 0;
+    int good_num = 0;
+    int stable_num = 0;
+    int dead_num = 0;
+    int lost_num = 0;
+
     for (size_t i = 0; i < feature_num(); ++i) {
         Feature *feature = get_feature(i);
         if (!feature->flag(FeatureFlag::FF_VALID))
@@ -161,9 +220,64 @@ double Map::compute_reprojections() {
         feature->reprojection_error = quality / std::max(quality_num, 1.0);
         reprojection_error += feature->reprojection_error;
         reprojection_num++;
+        if (feature->flag(FeatureFlag::FF_STABLE)) {
+            stable_num++;
+        } else if (feature->flag(FeatureFlag::FF_GOOD)) {
+            good_num++;
+        } else if (feature->flag(FeatureFlag::FF_DEAD)) {
+            dead_num++;
+        } else if (feature->flag(FeatureFlag::FF_LOST)) {
+            lost_num++;
+        }
+        printf(
+            "[feature]: %d, %zu, %s: ", reprojection_num, feature->id(), feature->info().c_str());
+        for (const auto &k : feature->observation_map()) {
+            Frame *frame = k.first;
+            printf(" %zu, ", frame->id());
+        }
+        printf("\n");
     }
     reprojection_error = reprojection_error / std::max(reprojection_num, 1);
-    return reprojection_error;
+    printf("stable_num: %d\n", stable_num);
+    printf("good_num: %d\n", good_num);
+    printf("dead_num: %d\n", dead_num);
+    printf("lost_num: %d\n", lost_num);
+    return {reprojection_num, reprojection_error};
+}
+
+std::pair<double, double> Map::compute_reprojections_without_last_frame() {
+    double reprojection_error = 0;
+    int reprojection_num = 0;
+    Frame *last_frame = get_last_frame();
+    for (size_t i = 0; i < feature_num(); ++i) {
+        Feature *feature = get_feature(i);
+        if (!feature->flag(FeatureFlag::FF_VALID))
+            continue;
+        const Eigen::Vector3d &x = feature->p_in_G;
+        double quality = 0.0;
+        double quality_num = 0.0;
+        for (const auto &k : feature->observation_map()) {
+            Frame *frame = k.first;
+            if (frame == last_frame)
+                continue;
+            size_t keypoint_id = k.second;
+            Pose pose = frame->get_camera_pose();
+            Eigen::Vector3d y = pose.q.conjugate() * (x - pose.p);
+            if (y.z() <= 1.0e-3 || y.z() > 50) {
+                feature->flag(FeatureFlag::FF_VALID) = false;
+                break;
+            }
+            quality += (frame->apply_k(y.hnormalized()) - frame->get_keypoint(keypoint_id)).norm();
+            quality_num += 1.0;
+        }
+        if (!feature->flag(FeatureFlag::FF_VALID))
+            continue;
+        feature->reprojection_error = quality / std::max(quality_num, 1.0);
+        reprojection_error += feature->reprojection_error;
+        reprojection_num++;
+    }
+    reprojection_error = reprojection_error / std::max(reprojection_num, 1);
+    return {reprojection_num, reprojection_error};
 }
 
 void Map::log_feature_reprojections() {

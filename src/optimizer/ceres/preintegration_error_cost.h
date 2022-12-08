@@ -69,7 +69,7 @@ public:
             if (jacobians[0]) {
                 Eigen::Map<Eigen::Matrix<double, 15, 4, Eigen::RowMajor>> dr_dq_i(jacobians[0]);
                 dr_dq_i.setZero();
-                dr_dq_i.block<3, 3>(ES_Q, 0) = -right_jacobian(r.segment<3>(ES_Q)).inverse()
+                dr_dq_i.block<3, 3>(ES_Q, 0) = -right_jacobian_inv(r.segment<3>(ES_Q))
                                                * q_j.conjugate().matrix() * q_center_i.matrix();
                 dr_dq_i.block<3, 3>(ES_P, 0) =
                     imu_i.q.conjugate().matrix()
@@ -97,7 +97,7 @@ public:
             if (jacobians[3]) {
                 Eigen::Map<Eigen::Matrix<double, 15, 3, Eigen::RowMajor>> dr_dbg_i(jacobians[3]);
                 dr_dbg_i.setZero();
-                dr_dbg_i.block<3, 3>(ES_Q, 0) = -right_jacobian(r.segment<3>(ES_Q)).inverse()
+                dr_dbg_i.block<3, 3>(ES_Q, 0) = -right_jacobian_inv(r.segment<3>(ES_Q))
                                                 * expmap(r.segment<3>(ES_Q)).conjugate().matrix()
                                                 * right_jacobian(dq_dbg * dbg) * dq_dbg;
                 dr_dbg_i.block<3, 3>(ES_P, 0) = -dp_dbg;
@@ -117,7 +117,7 @@ public:
                 Eigen::Map<Eigen::Matrix<double, 15, 4, Eigen::RowMajor>> dr_dq_j(jacobians[5]);
                 dr_dq_j.setZero();
                 dr_dq_j.block<3, 3>(ES_Q, 0) =
-                    right_jacobian(r.segment<3>(ES_Q)).inverse() * imu_j.q.conjugate().matrix();
+                    right_jacobian_inv(r.segment<3>(ES_Q)) * imu_j.q.conjugate().matrix();
                 dr_dq_j.block<3, 3>(ES_P, 0) =
                     -q_i.conjugate().matrix() * q_center_j.matrix() * hat(imu_j.p);
                 dr_dq_j = pre.delta.sqrt_inv_cov * dr_dq_j;

@@ -13,25 +13,25 @@
 
 std::stringstream get_line_ss(std::ifstream &fin, bool &valid);
 
-class OutputWriter {
+class TrajectoryWriter {
 public:
-    virtual ~OutputWriter() = default;
+    virtual ~TrajectoryWriter() = default;
     virtual void write_pose(const double &t, const Pose &pose) = 0;
 };
 
-class TumOutputWriter : public OutputWriter {
+class TumTrajectoryWriter : public TrajectoryWriter {
     std::ofstream file;
 
 public:
-    TumOutputWriter(const std::string &filename) {
+    TumTrajectoryWriter(const std::string &filename) {
         file.open(filename.c_str());
-        if (file.is_open()) {
+        if (!file.is_open()) {
             std::cout << "Cannot open file " << std::quoted(filename) << std::endl;
         }
         file.precision(15);
     }
 
-    ~TumOutputWriter() = default;
+    ~TumTrajectoryWriter() = default;
 
     void write_pose(const double &t, const Pose &pose) override {
         file << t << " " << pose.p.x() << " " << pose.p.y() << " " << pose.p.z() << " "

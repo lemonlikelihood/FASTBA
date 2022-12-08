@@ -68,6 +68,13 @@ struct Flagged {
         return std::none_of(flags.begin(), flags.end(), [this](FlagEnum f) { return flag(f); });
     }
 
+    std::string info() { return flags.to_string(); }
+
 private:
     std::bitset<flag_num> flags;
+};
+
+enum TrackingState : int32_t {
+    TRACKING_SUCCESS = 0,
+    TRACKING_FAILURE = 1,
 };

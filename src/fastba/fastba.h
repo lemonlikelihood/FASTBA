@@ -7,12 +7,13 @@
 #include "../optimizer/initializer.h"
 #include "../optimizer/sliding_window_tracker.h"
 #include <opencv2/opencv.hpp>
-
+#include "../../demo/config.h"
 
 class FASTBA {
 public:
     FASTBA();
     ~FASTBA();
+    FASTBA(std::shared_ptr<Config> config);
     void feed_imu(const IMUData &imu);
     void get_imu(Frame *frame);
     void feed_image(std::shared_ptr<Image> image, DatasetConfigurator *dataset_config);
@@ -22,7 +23,7 @@ public:
     std::unique_ptr<Frame>
     create_frame(std::shared_ptr<Image> image, DatasetConfigurator *dataset_config);
 
-    std::tuple<size_t, Pose, MotionState> get_lastest_state() const;
+    std::tuple<size_t, TrackingState, Pose, MotionState> get_lastest_state() const;
 
     void compute_essential();
     std::unique_ptr<Frame> last_frame;
@@ -34,5 +35,6 @@ public:
     std::unique_ptr<Map> feature_tracking_map;
     std::unique_ptr<SlidingWindowTracker> sliding_window_tracker;
 
-    std::tuple<size_t, Pose, MotionState> latest_state;
+    std::tuple<size_t, TrackingState, Pose, MotionState> latest_state;
+    std::shared_ptr<Config> config;
 };

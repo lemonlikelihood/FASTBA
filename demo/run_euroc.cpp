@@ -28,7 +28,7 @@ int main(int argc, const char *argv[]) {
     // std::string euroc_path = "/Users/lemon/dataset/MH_05";
     auto dataset_reader = std::make_unique<EurocDatasetReader>(euroc_data_path);
 
-    TumOutputWriter output_writer("trajectory.txt");
+    TumTrajectoryWriter output_writer("trajectory.txt");
 
     double t;
     Eigen::Vector3d w;
@@ -70,7 +70,7 @@ int main(int argc, const char *argv[]) {
                 // log_info("gt R: {}", cam_pose.q.coeffs().transpose());
                 // log_info("gt t: {}", cam_pose.p.transpose());
                 fastba.feed_image(image, dataset_reader->dataset_config.get());
-                auto [fid, pose, motion] = fastba.get_lastest_state();
+                auto [fid, tracking_state, pose, motion] = fastba.get_lastest_state();
                 output_writer.write_pose(image->t, pose);
                 // fastba.feed_gt_camera_pose(cam_pose);
                 // log_info("I: {}", image->t);

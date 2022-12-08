@@ -176,8 +176,7 @@ public:
         }
         gl::GLuint buffer = attribute_buffers.at(attrib);
         gl::glBindBuffer(gl::GL_ARRAY_BUFFER, buffer);
-        gl::glBufferData(
-            gl::GL_ARRAY_BUFFER, sizeof(E) * N * data.size(), &data[0], gl::GL_DYNAMIC_DRAW);
+        gl::glBufferData(gl::GL_ARRAY_BUFFER, sizeof(E) * N * data.size(), &data[0], gl::GL_DYNAMIC_DRAW);
         gl::glEnableVertexAttribArray(attrib);
         gl::glVertexAttribPointer(attrib, N, get_type_enum<E>(), is_type_integral<E>(), 0, nullptr);
         gl::glBindBuffer(gl::GL_ARRAY_BUFFER, 0);
@@ -186,17 +185,13 @@ public:
     void set_indices(const std::vector<unsigned int> &indices) {
         gl::glBindBuffer(gl::GL_ELEMENT_ARRAY_BUFFER, index_buffer);
         gl::glBufferData(
-            gl::GL_ELEMENT_ARRAY_BUFFER, sizeof(unsigned int) * indices.size(), &indices[0],
-            gl::GL_DYNAMIC_DRAW);
+            gl::GL_ELEMENT_ARRAY_BUFFER, sizeof(unsigned int) * indices.size(), &indices[0], gl::GL_DYNAMIC_DRAW);
     }
 
-    void draw(gl::GLenum mode, gl::GLuint start, gl::GLuint count) {
-        gl::glDrawArrays(mode, start, count);
-    }
+    void draw(gl::GLenum mode, gl::GLuint start, gl::GLuint count) { gl::glDrawArrays(mode, start, count); }
 
     void draw_indexed(gl::GLenum mode, gl::GLuint start, gl::GLuint count) {
-        gl::glDrawElements(
-            mode, count, gl::GL_UNSIGNED_INT, (const void *)(start * sizeof(gl::GLuint)));
+        gl::glDrawElements(mode, count, gl::GL_UNSIGNED_INT, (const void *)(start * sizeof(gl::GLuint)));
     }
 
 private:

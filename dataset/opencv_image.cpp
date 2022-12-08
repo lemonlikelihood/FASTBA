@@ -34,6 +34,8 @@ void OpenCvImage::detect_keypoints(
         max_points = 100;
     }
 
+    cv::setNumThreads(0);
+
     // std::vector<Point2f> corners;
     // cv::goodFeaturesToTrack(image, corners, max_points, 1.0e-5, 30, cv::noArray(), 5);
 
@@ -50,8 +52,8 @@ void OpenCvImage::detect_keypoints(
     std::vector<cv::KeyPoint> cvkeypoints; // fast 角点 ， harris 响应值
     gftt()->detect(image, cvkeypoints);
 
-    if (cvkeypoints.size()
-        > 0) { // 按响应值对检测到的关键点进行排序，这里检测到的坐标都是图像坐标系
+    // 按响应值对检测到的关键点进行排序，这里检测到的坐标都是图像坐标系
+    if (cvkeypoints.size() > 0) {
         std::sort(
             cvkeypoints.begin(), cvkeypoints.end(),
             [](const cv::KeyPoint &a, const cv::KeyPoint &b) { return a.response > b.response; });
@@ -63,11 +65,12 @@ void OpenCvImage::detect_keypoints(
             //     cvkeypoints[i].response);
         }
 
-        PoissonKeypointFilter filter(
-            20, image.cols - 20, 20, image.rows - 20,
-            20.0); // 新检测到的关键点过滤器，-20 避免关键点处在图像边缘处
-        filter.set_points(keypoints);
-        filter.filter(new_keypoints); // 函数调用完成后 new_keypoints 保存的是通过检测的关键点
+        // 新检测到的关键点过滤器，-20 避免关键点处在图像边缘处
+
+        PoissonKeypointFilter<2> filter(keypoint_distance);
+        filter.preset_points(keypoints);
+        filter.insert_points(new_keypoints);
+        // 函数调用完成后 new_keypoints 保存的是通过检测的关键点
 
         // std::vector<cv::KeyPoint> filtered_cvkeypoints(new_keypoints.size());
         // for (size_t i = 0; i < new_keypoints.size(); ++i) {
@@ -77,9 +80,17 @@ void OpenCvImage::detect_keypoints(
         // cv::Mat cvdescriptors;
         // orb()->compute(image, filtered_cvkeypoints, cvdescriptors);
 
-        keypoints.insert(
-            keypoints.end(), new_keypoints.begin(),
-            new_keypoints.end()); // 将新检测的关键点和原关键点一起返回
+        new_keypoints.erase(
+            std::remove_if(
+                new_keypoints.begin(), new_keypoints.end(),
+                [this](const auto &keypoint) {
+                    return keypoint.x() < 20 || keypoint.y() < 20 || keypoint.x() >= image.cols - 20
+                           || keypoint.y() >= image.rows - 20;
+                }),
+            new_keypoints.end());
+
+        // 将新检测的关键点和原关键点一起返回
+        keypoints.insert(keypoints.end(), new_keypoints.begin(), new_keypoints.end());
     }
 }
 

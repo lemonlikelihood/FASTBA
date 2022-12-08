@@ -339,11 +339,11 @@ void BundleAdjustor::marginalize_frame(Map *map, size_t index) {
         Feature *feature = frame_victim->get_feature(j);
         if (!feature || !feature->flag(FeatureFlag::FF_VALID))
             continue;
-        // Frame *frame_ref = feature->first_frame();
+        Frame *frame_ref = feature->first_frame();
         // size_t frame_index_ref = frame_indices.at(frame_ref);
         for (const auto &[frame_tgt, keypoint_index] : feature->observation_map()) {
-            // if (frame_tgt == frame_ref)
-            //     continue;
+            if (frame_tgt == frame_ref)
+                continue;
             if (frame_indices.count(frame_tgt) == 0)
                 continue;
             size_t frame_index_tgt = frame_indices.at(frame_tgt);

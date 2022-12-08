@@ -1,4 +1,6 @@
 #include "frame.h"
+#include "../../demo/config.h"
+#include "dataset/keypoint_filter.h"
 #include "../optimizer/preintegrator.h"
 #include "feature.h"
 #include "map.h"
@@ -77,13 +79,15 @@ Feature *Frame::get_feature_if_empty_create(size_t keypoint_id) {
     return features[keypoint_id];
 }
 
-void Frame::detect_keypoints() {
+void Frame::detect_keypoints(Config *config) {
     std::vector<Eigen::Vector2d> pkeypoints(keypoints.size());
     for (size_t i = 0; i < keypoints.size(); ++i) {
         pkeypoints[i] = keypoints[i];
     }
 
-    image->detect_keypoints(pkeypoints, 200, 20);
+    image->detect_keypoints(
+        pkeypoints, config->get_feature_tracker_max_keypoint_detection(),
+        config->get_feature_tracker_min_keypoint_distance());
     size_t old_keypoint_num = keypoints.size();
     keypoints.resize(pkeypoints.size());
     keypoints_normalized.resize(pkeypoints.size());
@@ -99,7 +103,7 @@ void Frame::detect_keypoints() {
 }
 
 
-void Frame::track_keypoints(Frame *next_frame) {
+void Frame::track_keypoints(Config *config, Frame *next_frame) {
     std::vector<Eigen::Vector2d> curr_keypoints(keypoints.size());
     std::vector<Eigen::Vector2d> next_keypoints;
 
@@ -107,8 +111,7 @@ void Frame::track_keypoints(Frame *next_frame) {
         curr_keypoints[i] = keypoints[i];
     }
 
-    bool predict_keypoints = true;
-    if (predict_keypoints) { //
+    if (config->is_feature_tracker_predict_keypoints()) { //
         Eigen::Quaternion delta_key_q =
             (camera_extri.q.conjugate() * imu_extri.q * next_frame->preintegration.delta.q
              * next_frame->imu_extri.q.conjugate() * next_frame->camera_extri.q)
@@ -128,18 +131,45 @@ void Frame::track_keypoints(Frame *next_frame) {
     std::vector<char> status;
     image->track_keypoints(next_frame->image.get(), curr_keypoints, next_keypoints, status);
 
+    // filter keypoints based on track length
+    std::vector<std::pair<size_t, size_t>> keypoint_index_track_length;
+    keypoint_index_track_length.reserve(curr_keypoints.size());
+
+    for (size_t i = 0; i < curr_keypoints.size(); ++i) {
+        if (status[i] == 0)
+            continue;
+        Feature *feature = get_feature(i);
+        if (feature == nullptr)
+            continue;
+        keypoint_index_track_length.emplace_back(i, feature->observation_num());
+    }
+
+    std::sort(
+        keypoint_index_track_length.begin(), keypoint_index_track_length.end(),
+        [](const auto &a, const auto &b) { return a.second > b.second; });
+
+    PoissonKeypointFilter<2> filter(config->get_feature_tracker_min_keypoint_distance());
+    for (auto &[keypoint_index, track_length] : keypoint_index_track_length) {
+        Eigen::Vector2d pt = next_keypoints[keypoint_index];
+        if (filter.permit_point(pt)) {
+            filter.preset_point(pt);
+        } else {
+            status[keypoint_index] = 0;
+        }
+    }
+
     int keypoint_tracked_num = 0;
-    for (size_t curr_keypoint_id = 0; curr_keypoint_id < curr_keypoints.size();
-         ++curr_keypoint_id) {
-        if (status[curr_keypoint_id]) {
-            size_t next_keypoint_id = next_frame->keypoints.size();
-            next_frame->keypoints.emplace_back((next_keypoints[curr_keypoint_id]));
+    for (size_t curr_keypoint_index = 0; curr_keypoint_index < curr_keypoints.size();
+         ++curr_keypoint_index) {
+        if (status[curr_keypoint_index]) {
+            size_t next_keypoint_index = next_frame->keypoints.size();
+            next_frame->keypoints.emplace_back((next_keypoints[curr_keypoint_index]));
             next_frame->keypoints_normalized.emplace_back(
-                remove_k(next_keypoints[curr_keypoint_id]));
+                remove_k(next_keypoints[curr_keypoint_index]));
             next_frame->features.emplace_back(nullptr);
             next_frame->reprojection_factors.emplace_back(nullptr);
-            get_feature_if_empty_create(curr_keypoint_id)
-                ->add_observation(next_frame, next_keypoint_id);
+            get_feature_if_empty_create(curr_keypoint_index)
+                ->add_observation(next_frame, next_keypoint_index);
             keypoint_tracked_num++;
         }
     }

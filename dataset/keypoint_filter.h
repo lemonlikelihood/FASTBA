@@ -3,93 +3,119 @@
 #include "../src/utils/common.h"
 #include "dataset.h"
 
+template<int Dimension = Eigen::Dynamic, bool RowVector = false, typename T = double>
+using vector = typename std::conditional<
+    RowVector, Eigen::Matrix<T, 1, Dimension>, Eigen::Matrix<T, Dimension, 1>>::type;
+
+template<size_t dimension>
 class PoissonKeypointFilter {
 public:
-    PoissonKeypointFilter(double x_min, double x_max, double y_min, double y_max, double radius) {
-        m_x_min = x_min;
-        m_x_max = x_max;
-        m_y_min = y_min;
-        m_y_max = y_max;
-        m_radius = radius;
-        m_radius_squared = radius * radius;
-        m_grid_size = radius / sqrt(2);
-        m_grid_width = (int)((m_x_max - m_x_min) / m_grid_size) + 1;
-        m_grid_height = (int)((m_y_max - m_y_min) / m_grid_size) + 1;
-        clear();
-    }
+    using point_type = vector<dimension>;
+    using grid_index_type = std::array<int, dimension>;
+
+    PoissonKeypointFilter(double radius)
+        : radius(radius),
+          radius_squared(radius * radius),
+          grid_size(radius / sqrt(double(dimension))),
+          grid_span((int)ceil(sqrt((double)dimension))) {}
 
     // 清空grid和point
     void clear() {
-        std::vector<size_t>(m_grid_width * m_grid_height, nil()).swap(m_grid);
-        m_points.clear();
+        points.clear();
+        sparse_grid.clear();
     }
 
     // m_points 记录占领网格的关键点
-    void set_points(const std::vector<Eigen::Vector2d> &points) {
-        for (const Eigen::Vector2d &p : points) {
-            int ix, iy;
-            to_icoord(p, ix, iy); // 将关键点划分到网格，
-            m_grid[ix + iy * m_grid_width] =
-                m_points.size(); // 将对应的关键点序号放入到对应的网格中
-            m_points.push_back(p);
+    void preset_point(const point_type &point) {
+        grid_index_type index = to_index(point);
+        sparse_grid[index] = points.size();
+        points.emplace_back(point);
+    }
+
+    void preset_points(const std::vector<point_type> &points) {
+        for (const auto &p : points) {
+            preset_point(p);
+        }
+    }
+
+    bool permit_point(const point_type &point) const {
+        grid_index_type index;
+        return test_point(point, index);
+    }
+
+    bool insert_point(const point_type &point) {
+        if (grid_index_type index; test_point(point, index)) {
+            sparse_grid[index] = points.size();
+            points.emplace_back(point);
+            return true;
+        } else {
+            return false;
         }
     }
 
     // 过滤完所有的关键点都存在m_points中
-    void filter(std::vector<Eigen::Vector2d> &points) {
-        size_t n_points_before = m_points.size();
-        for (const Eigen::Vector2d &p : points) {
-            int ix, iy;
-            if (test_point(p, ix, iy)) { // 网格大小保证了唯一性
-                m_grid[ix + iy * m_grid_width] = m_points.size();
-                m_points.push_back(p);
+    void insert_points(std::vector<point_type> &candidate_points) {
+        size_t n_point_before = points.size();
+        for (const auto &p : candidate_points) {
+            if (grid_index_type index; test_point(p, index)) {
+                sparse_grid[index] = points.size();
+                points.emplace_back(p);
             }
         }
-        // 将成功保留下来的关键点交换至引用参数中
-        std::vector<Eigen::Vector2d>(m_points.begin() + n_points_before, m_points.end())
-            .swap(points);
+        std::vector<point_type>(points.begin() + n_point_before, points.end())
+            .swap(candidate_points);
     }
+
+    const std::vector<point_type> &get_points() const { return points; }
 
 private:
-    // 将关键点划分到网格
-    void to_icoord(const Eigen::Vector2d &p, int &ix, int &iy) const {
-        ix = int(floor((p.x() - m_x_min) / m_grid_size));
-        iy = int(floor((p.y() - m_y_min) / m_grid_size));
+    grid_index_type to_index(const point_type &p) const {
+        grid_index_type index;
+        for (size_t i = 0; i < dimension; ++i) {
+            index[i] = int(floor(p(i)) / grid_size);
+        }
+        return index;
     }
 
-    // 和网格里每一个关键点去比较最小norm
-    bool test_point(const Eigen::Vector2d &p, int &ix, int &iy) const {
-        if (p.x() < m_x_min || p.x() > m_x_max)
-            return false;
-        if (p.y() < m_y_min || p.y() > m_y_max)
-            return false;
-        to_icoord(p, ix, iy);
-        int x_extent_begin = std::max(ix - 2, 0),
-            x_extent_end = std::min(ix + 2, m_grid_width - 1); // 前后各多放宽两格同时也避免越界
-        int y_extent_begin = std::max(iy - 2, 0),
-            y_extent_end = std::min(iy + 2, m_grid_height - 1);
-        for (int y = y_extent_begin; y <= y_extent_end; ++y) {
-            for (int x = x_extent_begin; x <= x_extent_end; ++x) {
-                size_t nbr = m_grid[x + y * m_grid_width];
-                if (nbr != nil()) {
-                    if ((p - m_points[nbr]).squaredNorm() < m_radius_squared) {
-                        return false;
-                    }
+    bool test_point(const point_type &p, grid_index_type &index) const {
+        index = to_index(p);
+        grid_index_type ibegin = index, iend = index;
+        for (size_t i = 0; i < dimension; ++i) {
+            ibegin[i] -= grid_span;
+            iend[i] += grid_span;
+        }
+
+        grid_index_type icurr = ibegin;
+        while (icurr[dimension - 1] <= iend[dimension - 1]) {
+            icurr[0]++;
+            for (int i = 0; icurr[i] > iend[i] && i < dimension - 1; ++i) {
+                icurr[i] = ibegin[i];
+                icurr[i + 1]++;
+            }
+            if (auto it = sparse_grid.find(icurr); it != sparse_grid.end()) {
+                if ((p - points[it->second]).squaredNorm() < radius_squared) {
+                    return false;
                 }
             }
         }
+
         return true;
     }
 
-    double m_x_min;
-    double m_x_max;
-    double m_y_min;
-    double m_y_max;
-    double m_radius;
-    double m_radius_squared;
-    double m_grid_size;
-    int m_grid_width;
-    int m_grid_height;
-    std::vector<size_t> m_grid;
-    std::vector<Eigen::Vector2d> m_points;
+    double radius, radius_squared;
+    double grid_size;
+    int grid_span;
+
+    struct IndexHash {
+        std::size_t operator()(const grid_index_type &index) const {
+            size_t seed = 0;
+            for (size_t i = 0; i < dimension; ++i) {
+                seed ^= std::hash<int>()(index[i]) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+            }
+            return seed;
+        }
+    };
+
+    std::vector<point_type> points;
+    std::unordered_map<grid_index_type, size_t, IndexHash> sparse_grid;
 };

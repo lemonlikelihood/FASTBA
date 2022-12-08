@@ -27,8 +27,8 @@ void Image::update_image(const cv::Mat &image) {
     cv::cvtColor(rgb, rgb, cv::COLOR_BGR2RGB);
     gl::glBindTexture(gl::GL_TEXTURE_2D, texture_id);
     gl::glTexImage2D(
-        gl::GL_TEXTURE_2D, 0, gl::GL_RGB, texture_size.x(), texture_size.y(), 0, gl::GL_RGB,
-        gl::GL_UNSIGNED_BYTE, rgb.ptr());
+        gl::GL_TEXTURE_2D, 0, gl::GL_RGB, texture_size.x(), texture_size.y(), 0, gl::GL_RGB, gl::GL_UNSIGNED_BYTE,
+        rgb.ptr());
     gl::glGenerateMipmap(gl::GL_TEXTURE_2D);
     gl::glBindTexture(gl::GL_TEXTURE_2D, 0);
 }

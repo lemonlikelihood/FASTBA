@@ -68,22 +68,29 @@ bool SlidingWindowTracker::track() {
     frame->preintegration.predict(last_frame, frame.get());
 
     {
-        double reprojection_error = map->compute_reprojections();
+        auto [point_num, reprojection_error] = map->compute_reprojections();
         log_info(
-            "[SlidingWindowTracker]: frame {} before pnp, reprojection_error: {}", frame->id(),
-            reprojection_error);
+            "[SlidingWindowTracker]: frame {} before pnp, point_num: {}, reprojection_error: {}",
+            frame->id(), point_num, reprojection_error);
+        auto [point_num1, reprojection_error1] = map->compute_reprojections_without_last_frame();
+        log_info(
+            "[SlidingWindowTracker]: frame {} before pnp without lastframe, point_num: {}, "
+            "reprojection_error: {}",
+            frame->id(), point_num1, reprojection_error1);
     }
 
     visual_inertial_pnp(map.get(), frame.get(), true);
 
     {
-        double reprojection_error = map->compute_reprojections();
+        auto [point_num, reprojection_error] = map->compute_reprojections();
         log_info(
-            "[SlidingWindowTracker]: frame {} visual_inertial_pnp, reprojection_error: {}",
-            frame->id(), reprojection_error);
+            "[SlidingWindowTracker]: frame {} visual_inertial_pnp, point_num: {}, "
+            "reprojection_error: {}",
+            frame->id(), point_num, reprojection_error);
         if (reprojection_error > 3.0) {
             log_error(
                 "[SlidingWindowTracker]: pnp reprojection_error is bigger {}", reprojection_error);
+            tracking_state = TRACKING_FAILURE;
             getchar();
         }
     }
@@ -101,6 +108,7 @@ bool SlidingWindowTracker::track() {
         }
         if (feature->triangulate()) {
             new_triangulated_feature++;
+            feature->flag(FeatureFlag::FF_VALID) = true;
         }
     }
     log_info("[SlidingWindowTracker]: new_triangulated_feature: {}\n", new_triangulated_feature);
@@ -110,10 +118,19 @@ bool SlidingWindowTracker::track() {
         while (map->frame_num() >= 8 + 1) {
             log_info("[SlidingWindowTracker]: need marginalization");
             map->marginalize_frame(0);
-            // map->erase_frame(0);
+            map->update_feature_state();
             log_info("[marginalize_frame end]");
+            {
+                auto [point_num, reprojection_error] = map->compute_reprojections();
+                log_info(
+                    "[SlidingWindowTracker]: after margin_frame 0, point_num: {}, "
+                    "reprojection_error: "
+                    "{}",
+                    point_num, reprojection_error);
+            }
         }
         map->append_frame(std::move(frame));
+        map->update_feature_state();
 
         if (!map->get_marginalization_factor()) {
             std::vector<Frame *> init_frames;
@@ -139,11 +156,11 @@ bool SlidingWindowTracker::track() {
         }
 
         BundleAdjustor().solve(map.get(), true, 50, 1e6);
-        double reprojection_error = map->compute_reprojections();
+        auto [point_num, reprojection_error] = map->compute_reprojections();
         log_info(
-            "[SlidingWindowTracker]: last frame is keyframe, BundleAdjustor, reprojection_error: "
-            "{}",
-            reprojection_error);
+            "[SlidingWindowTracker]: last frame is keyframe, BundleAdjustor, point_num: {}, "
+            "reprojection_error: {}",
+            point_num, reprojection_error);
     } else {
         // log_info("[SlidingWindowTracker]: last_frame {} is not keyframe", last_frame->id());
         log_info(
@@ -160,18 +177,44 @@ bool SlidingWindowTracker::track() {
             frame->image->t, last_frame->motion.bg, last_frame->motion.ba, true, true);
 
         map->erase_frame(map->frame_num() - 1);
+        map->update_feature_state();
         log_info("[SlidingWindowTracker]: erase last_frame {}", last_frame->id());
+
+        {
+            auto [point_num, reprojection_error] = map->compute_reprojections();
+            log_info(
+                "[SlidingWindowTracker]: after erase_frame {}, point_num: {}, reprojection_error: "
+                "{}",
+                last_frame->id(), point_num, reprojection_error);
+        }
 
         map->append_frame(std::move(frame));
         log_info("[SlidingWindowTracker]: append frame {}", fid);
+        {
+            auto [point_num, reprojection_error] = map->compute_reprojections();
+            log_info(
+                "[SlidingWindowTracker]: after append frame {}, point_num: {}, reprojection_error: "
+                "{}",
+                fid, point_num, reprojection_error);
+        }
         // BundleAdjustor().solve(map.get(), true, 50, 1e6);
     }
 
     map->prune_features([](const Feature *feature) {
-        return (!feature->flag(FeatureFlag::FF_VALID) || feature->reprojection_error > 0.5);
+        return (!feature->flag(FeatureFlag::FF_VALID) || feature->reprojection_error > 3.0);
     });
 
+    {
+        auto [point_num, reprojection_error] = map->compute_reprojections();
+        log_info(
+            "[SlidingWindowTracker]: frame {} after prune feature, point_num: {}, "
+            "reprojection_error: {}",
+            fid, point_num, reprojection_error);
+    }
+
     log_info("[SlidingWindowTracker]: track frame {} over", fid);
+    log_info("");
+    tracking_state = TRACKING_SUCCESS;
     return true;
 }
 
@@ -235,7 +278,7 @@ void SlidingWindowTracker::keyframe_check(Frame *frame) {
         frame->flag(FrameFlag::FF_KEYFRAME));
 }
 
-std::tuple<Pose, MotionState> SlidingWindowTracker::get_latest_state() const {
+std::tuple<TrackingState, Pose, MotionState> SlidingWindowTracker::get_latest_state() const {
     const Frame *frame = map->get_last_frame();
-    return {frame->pose, frame->motion};
+    return {tracking_state, frame->pose, frame->motion};
 }

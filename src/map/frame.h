@@ -4,6 +4,7 @@
 #include <Eigen/Eigen>
 #include <opencv2/opencv.hpp>
 
+#include "../../demo/config.h"
 #include "../optimizer/factor.h"
 #include "../optimizer/preintegrator.h"
 
@@ -60,8 +61,8 @@ public:
         return reprojection_factors[keypoint_index].get();
     }
 
-    void detect_keypoints();
-    void track_keypoints(Frame *next_frame);
+    void detect_keypoints(Config *config);
+    void track_keypoints(Config *config, Frame *next_frame);
 
     Pose get_camera_pose() const;
     Pose get_imu_pose() const;

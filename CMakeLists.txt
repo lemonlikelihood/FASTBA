@@ -4,6 +4,7 @@ project(FASTBA VERSION 2.3.2.0 LANGUAGES CXX)
 set(CMAKE_POLICY_DEFAULT_CMP0120 OLD)
 set(CMAKE_POLICY_DEFAULT_CMP0069 NEW)
 
+add_definitions("-w")
 include(FetchContent)
 set(FETCHCONTENT_QUIET OFF)
 
@@ -284,8 +285,34 @@ target_sources(dep-dataset PUBLIC
                )
 target_link_libraries(dep-dataset depends::eigen depends::ceres depends::opencv depends::yaml-cpp depends::spdlog)
 
-add_executable(run_euroc 
-                demo/run_euroc.cpp 
+# add_executable(run_euroc 
+#                 demo/run_euroc.cpp 
+#                 src/fastba/fastba.cpp 
+#                 src/map/frame.cpp 
+#                 src/map/map.cpp
+#                 # src/map/sliding_window.cpp
+#                 # src/map/tracker.cpp
+#                 src/map/feature.cpp
+#                 src/optimizer/ceres/preintegration_error_cost.h
+#                 src/optimizer/ceres/reprojection_error_cost.h
+#                 src/optimizer/factor.cpp
+#                 src/optimizer/preintegrator.cpp
+#                 src/optimizer/pnp.cpp
+#                 src/optimizer/bundle_adjustor.cpp
+#                 src/optimizer/initializer.cpp
+#                 src/optimizer/sliding_window_tracker.cpp
+#                 src/geometry/stereo.cpp
+#                 src/geometry/essential.cpp
+#                 src/geometry/homography.cpp
+#                 src/geometry/lie_algebra.cpp
+#                 src/utils/euler_angle.cpp
+#                 )
+
+# target_link_libraries(run_euroc PUBLIC dep-dataset depends::spdlog depends::opencv depends::lyra)
+
+add_executable(run_main
+                demo/main.cpp 
+                demo/config.cpp 
                 src/fastba/fastba.cpp 
                 src/map/frame.cpp 
                 src/map/map.cpp
@@ -307,7 +334,7 @@ add_executable(run_euroc
                 src/utils/euler_angle.cpp
                 )
 
-target_link_libraries(run_euroc PUBLIC dep-dataset depends::spdlog depends::opencv depends::lyra)
+target_link_libraries(run_main PUBLIC dep-dataset depends::spdlog depends::opencv depends::lyra dep-dataset dep-lightvis)
 
 # add_executable(run_lightvis demo/run_lightvis.cpp)
 # target_link_libraries(run_lightvis PUBLIC dep-dataset dep-lightvis)

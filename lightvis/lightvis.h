@@ -53,8 +53,7 @@ public:
     void add_points(std::vector<Eigen::Vector3f> &points, std::vector<Eigen::Vector4f> &colors);
 
     void add_trajectory(std::vector<Eigen::Vector3f> &positions, Eigen::Vector4f &color);
-    void
-    add_trajectory(std::vector<Eigen::Vector3f> &positions, std::vector<Eigen::Vector4f> &colors);
+    void add_trajectory(std::vector<Eigen::Vector3f> &positions, std::vector<Eigen::Vector4f> &colors);
 
     void add_separator();
     void add_label(const std::string &label);
@@ -69,6 +68,12 @@ protected:
     virtual bool mouse(const MouseStates &states);
     //virtual bool keyboard()
     virtual void gui(void *ctx, int w, int h);
+
+    // extra draw functions
+    void draw_axis();
+    void draw_camera(
+        const Eigen::Vector3d &p, const Eigen::Quaterniond &q, const Eigen::Matrix3d &K, const Eigen::Vector4d &color,
+        const Eigen::Vector3d &velocity_dir, double size);
 
 private:
     std::unique_ptr<LightVisDetail> detail;
